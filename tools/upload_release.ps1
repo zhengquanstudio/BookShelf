@@ -108,11 +108,12 @@ try {
         Write-Host "上传 $AssetName（$sizeMb MB）…"
         $enc = [uri]::EscapeDataString($AssetName)
         $t0 = Get-Date
+        $uploadUrl = "${uploadBase}?name=$enc"
         curl.exe -# -X POST `
             -H "Authorization: token $Token" -H "X-GitHub-Api-Version: 2022-11-28" `
             -H "Content-Type: application/octet-stream" `
             --data-binary "@$Path" `
-            "$uploadBase?name=$enc"
+            $uploadUrl
         if ($LASTEXITCODE -ne 0) { throw "上传失败：$AssetName" }
         $sec = [int]((Get-Date) - $t0).TotalSeconds
         Write-Host "完成 $AssetName（$sec s）"
