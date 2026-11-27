@@ -4,8 +4,8 @@ Windows 本地电子书管理与阅读器 · 首个公开版本。
 
 ## 下载
 
-- **安装包**：`BookShelf-Setup-1.1.4.exe`（约 118 MB，含 8 套内嵌中英文字体）
-- **SHA256**：`e9f5c32e1759b36764195d684a49bbbe8fb1768e0c71b2892b54a0da759abd64`
+- **安装包**：`BookShelf-Setup-1.1.4.exe`（约 148 MB，含 8 套内嵌中英文字体）
+- **SHA256**：`efaf86e6544db96cd85fab4fdb6a05a9352ea3a38087805dc2a0095777598be1`
 - 校验命令（PowerShell）：`Get-FileHash .\BookShelf-Setup-1.1.4.exe -Algorithm SHA256`
 
 ## 安装说明
@@ -39,3 +39,4 @@ Windows 本地电子书管理与阅读器 · 首个公开版本。
 
 - 双页「摊开」模式尚未落地，当前设置里的展示方式仍是单页分栏语义，下个版本修正。
 - 阅读界面顶栏未显示封面缩略图与作者，正在按原型重排。
+
