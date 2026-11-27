@@ -5,6 +5,11 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# Python 在英文系统上默认用 cp1252 输出，脚本里任何中文 print 都会 UnicodeEncodeError。
+# 本地中文 Windows 看不出来，GitHub Actions 上必现，这里统一强制 UTF-8。
+$env:PYTHONUTF8 = "1"
+$env:PYTHONIOENCODING = "utf-8"
+$OutputEncoding = [Text.UTF8Encoding]::new($false)
 $Root = Split-Path -Parent $PSScriptRoot
 $Python = Join-Path $Root ".venv\Scripts\python.exe"
 
