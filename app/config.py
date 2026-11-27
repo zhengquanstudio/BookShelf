@@ -17,7 +17,7 @@ from .errors import ConfigError
 
 APP_NAME = "BookShelf"
 APP_NAME_CN = "书格"
-APP_VERSION = "1.1.4"
+APP_VERSION = "1.1.5"
 
 SUPPORTED_EXTENSIONS = (".epub", ".pdf", ".mobi", ".azw3")
 
