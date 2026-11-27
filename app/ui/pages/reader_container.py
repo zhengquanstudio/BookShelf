@@ -147,6 +147,21 @@ _TEXTURES = (("none", "无"), ("paper", "纸纹"), ("noise", "细噪"))
 _FONT_WEIGHTS = (400, 500, 600)
 _HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
+# D3：高亮五色默认值，只接受 #rrggbb（6 位），非法位回退默认。
+_HL_DEFAULT = ["#f2c14e", "#d99c98", "#9cc39a", "#8fb3d9", "#b6a4d9"]
+
+
+def _highlight_colors(raw: Any) -> list[str]:
+    """校验高亮色列表：长度固定 5，仅接受 #rrggbb，非法项回落默认值。"""
+    if not isinstance(raw, (list, tuple)):
+        return list(_HL_DEFAULT)
+    out = list(_HL_DEFAULT)
+    for i, v in enumerate(list(raw)[:5]):
+        s = str(v).strip().lower()
+        if _HEX_COLOR.match(s):
+            out[i] = s
+    return out
+
 # 目录行的数据角色：数字沿用 Qt.UserRole，其余依次递增，测试可按 0x0100 取目标。
 _ROLE_TARGET = Qt.UserRole
 _ROLE_LABEL = Qt.UserRole + 1
@@ -466,6 +481,9 @@ class ReaderContainer(QWidget):
         self._session_timer.setInterval(60000)
         self._session_timer.timeout.connect(self._flush_session)
         self._session_timer.start()
+
+        # D3：一次性把老配置 column_count=2 迁移为 page_mode=spread。
+        self._migrate_reader_prefs_v5()
 
         self._build_ui()
         self._bind_shortcuts()
@@ -1910,6 +1928,26 @@ class ReaderContainer(QWidget):
             palette = replace(palette, accent=accent.lower())
         return palette
 
+    def _migrate_reader_prefs_v5(self) -> None:
+        """一次性迁移：老用户存的 column_count=2（旧双栏）映射为 page_mode=spread。
+
+        用 settings 顶层标记 reader_prefs_migrated_v5 控制只跑一次；已存在 page_mode
+        时不覆盖（用户在新版里手动改过就尊重）。
+        """
+        if self.settings.data.get("reader_prefs_migrated_v5"):
+            return
+        reader = self.settings.data.setdefault("reader", {})
+        if (
+            "page_mode" not in reader
+            and _as_int(reader.get("column_count"), 1) == 2
+        ):
+            reader["page_mode"] = "spread"
+        self.settings.data["reader_prefs_migrated_v5"] = 1
+        try:
+            self.settings.save()
+        except BookShelfError as exc:
+            log.warning("保存阅读器偏好迁移失败：%s", exc)
+
     def _reader_prefs(self) -> dict[str, Any]:
         data = self._merged_reader()
         palette = self._resolve_palette(data)
@@ -1942,6 +1980,18 @@ class ReaderContainer(QWidget):
             "margin_right": min(240, max(0, _as_int(data.get("margin_right"), legacy))),
             "margin_px": legacy,
             "column_count": 2 if _as_int(data.get("column_count"), 1) == 2 else 1,
+            "page_mode": "spread" if str(data.get("page_mode")) == "spread" else "single",
+            "page_width": min(900, max(420, _as_int(data.get("page_width"), 560))),
+            "disable_double_click": _as_bool(data.get("disable_double_click"), False),
+            "auto_turn_sec": min(120, max(0, _as_int(data.get("auto_turn_sec"), 0))),
+            "reading_ruler": _as_bool(data.get("reading_ruler"), False),
+            "mask_top": _as_bool(data.get("mask_top"), True),
+            "show_clock": _as_bool(data.get("show_clock"), True),
+            "show_remaining": _as_bool(data.get("show_remaining"), True),
+            "highlight_colors": _highlight_colors(data.get("highlight_colors")),
+            "turn_anim": str(data.get("turn_anim") or "flip")
+            if str(data.get("turn_anim") or "flip") in {"instant", "push", "flip"}
+            else "flip",
             "max_column_width": min(
                 1200, max(520, _as_int(data.get("max_column_width"), 920))
             ),

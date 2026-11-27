@@ -176,3 +176,65 @@ def test_stepper_set_value_does_not_emit(qapp):
     assert stepper.value() == 25
     assert stepper.value_label.text() == "25"
     assert emitted == []
+
+
+# ---- D3 · 新 prefs 键 --------------------------------------------
+def test_d3_prefs_defaults(reader):
+    prefs = reader._reader_prefs()
+    assert prefs["page_mode"] == "single"
+    assert prefs["page_width"] == 560
+    assert prefs["disable_double_click"] is False
+    assert prefs["auto_turn_sec"] == 0
+    assert prefs["reading_ruler"] is False
+    assert prefs["mask_top"] is True
+    assert prefs["show_clock"] is True
+    assert prefs["show_remaining"] is True
+    assert prefs["turn_anim"] == "flip"
+    assert prefs["highlight_colors"] == [
+        "#f2c14e", "#d99c98", "#9cc39a", "#8fb3d9", "#b6a4d9"
+    ]
+
+
+def test_d3_page_mode_and_width_clamped(reader, settings):
+    settings.data["reader"].update({"page_mode": "spread", "page_width": 1200})
+    prefs = reader._reader_prefs()
+    assert prefs["page_mode"] == "spread"
+    assert prefs["page_width"] == 900  # 上界夹到 900
+
+    settings.data["reader"].update({"page_mode": "weird", "page_width": 10})
+    prefs = reader._reader_prefs()
+    assert prefs["page_mode"] == "single"
+    assert prefs["page_width"] == 420  # 下界夹到 420
+
+
+def test_d3_highlight_colors_validation(reader, settings):
+    # #ABC 是三位简写，_HEX_COLOR 只认 6 位 → 非法；xxx 非法 → 回落默认。
+    settings.data["reader"]["highlight_colors"] = ["#ABC", "#f2c14e", "xxx"]
+    colors = reader._reader_prefs()["highlight_colors"]
+    assert colors == [
+        "#f2c14e",  # 非法 → 默认 index0
+        "#f2c14e",  # 合法保留
+        "#9cc39a",  # 非法 → 默认 index2
+        "#8fb3d9",
+        "#b6a4d9",
+    ]
+
+
+def test_d3_migrate_column_count_to_spread_once(reader, settings, tmp_path):
+    # 模拟老用户：没有 page_mode，存的是 column_count=2。
+    settings.data["reader"]["column_count"] = 2
+    settings.data["reader"].pop("page_mode", None)
+    settings.data.pop("reader_prefs_migrated_v5", None)
+
+    reader._migrate_reader_prefs_v5()
+    assert reader._reader_prefs()["page_mode"] == "spread"
+    assert settings.data["reader_prefs_migrated_v5"] == 1
+
+    # 第二次：标记已存在，不再迁移（即便手动改回 column_count=2）。
+    settings.data["reader"]["page_mode"] = "single"
+    reader._migrate_reader_prefs_v5()
+    assert reader._reader_prefs()["page_mode"] == "single"
+
+    # 迁移已持久化到磁盘。
+    reloaded = SettingsService(tmp_path / "config.json").data
+    assert reloaded.get("reader_prefs_migrated_v5") == 1
