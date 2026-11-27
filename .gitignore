@@ -36,3 +36,8 @@ docs/*.ttf
 docs/*.otf
 docs/*.ttc
 *.bak
+
+# CI 需要字体自检脚本（其余 _audit 仍忽略）
+!_audit/
+_audit/*
+!_audit/font_check.py
