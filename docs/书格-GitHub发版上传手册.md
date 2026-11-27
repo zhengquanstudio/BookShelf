@@ -47,3 +47,17 @@ cd E:\BookShelf
 - 两条路都基于同一个 tag，先后跑不会互相覆盖（脚本按附件名判重）。
 
 > token 只给脚本用，不进 git、不进 Release、不进日志。
+
+## 4. 从 1.1.5 起的标准动作（给 AI 编程照做）
+
+1. 改 `app\config.py` 的 `APP_VERSION = "1.1.5"`；
+2. `CHANGELOG.md` 顶部加 `## [1.1.5] - 日期` 一段，写清「新增 / 变更 / 修复」；
+3. 新建 `docs\release-notes-v1.1.5.md`（就是 Release 页面正文，写成给用户看的话，含下载、安装、SHA256 占位、已知问题）；
+4. `python -m pytest tests -q` 必须全绿；
+5. `tools\build.ps1` 出包，确认 `release\BookShelf-Setup-1.1.5.exe` 与 `checksums.txt` 都在；
+6. 本地兜底上传：`$env:GH_TOKEN="ghp_..."; .\tools\upload_release.ps1`；
+7. 走 CI 自动：`git tag v1.1.5; git push origin main v1.1.5`，等 Actions 的 `release` 跑完自动挂包；
+8. 两个都跑也无害：脚本会按附件名判重、覆盖同名附件，Release 正文以脚本/CI 最后一次写入为准。
+
+**红线**：`APP_VERSION` 与 tag 必须一致（tag 不带 `v` 前缀或带都可以，脚本会自动补 `v`）；安装包不进 git；`release\` 目录留给本地和 CI 产物。
+
