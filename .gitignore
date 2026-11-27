@@ -1,0 +1,38 @@
+.venv/
+dist/
+build/
+release/
+installer/BookShelf-Setup-*.exe
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+_audit/
+_archive/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.log
+
+# --- 只读参考与素材，不入版本库 ---
+readest-main/
+koodo-reader-dev/
+_archive/
+docs/fonts-src/
+docs/lxgw-wenkai-v1.521/
+docs/SiYuanSongTiRegular/
+docs/XiaMingXinSong/
+*.zip
+
+# --- 打包产物 ---
+installer/BookShelf-Setup-*.exe
+*.iss.bak
+
+# --- 散落在 docs 的字体源文件 / 备份 ---
+docs/*.ttf
+docs/*.otf
+docs/*.ttc
+*.bak

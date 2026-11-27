@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>书库助手 · 阅读器</title>
+<link rel="stylesheet" href="reader.css"/>
+<style>
+/* 内置字体：相对 assets 的路径，打包后仍有效；主文档声明供界面与字体自检使用。
+   正文 iframe（srcdoc）由 reader.js 用绝对地址再注入一份同样的 @font-face。 */
+@font-face{font-family:"LXGW WenKai";src:url("fonts/LXGWWenKai-Regular.ttf") format("truetype");font-weight:400;font-display:block}
+@font-face{font-family:"Source Han Serif CN";src:url("fonts/SourceHanSerifCN-Regular.otf") format("opentype");font-weight:400;font-display:block}
+@font-face{font-family:"LXGW Heart Serif CHS";src:url("fonts/LXGWHeartSerifCHS.ttf") format("truetype");font-weight:400;font-display:block}
+@font-face{font-family:"Noto Sans SC";src:url("fonts/NotoSansSC-Variable.ttf") format("truetype");font-weight:100 900;font-display:block}
+@font-face{font-family:"Literata";src:url("fonts/Literata-Variable.ttf") format("truetype");font-weight:200 900;font-display:block}
+@font-face{font-family:"Source Serif 4";src:url("fonts/SourceSerif4-Variable.ttf") format("truetype");font-weight:200 900;font-display:block}
+@font-face{font-family:"EB Garamond";src:url("fonts/EBGaramond-Variable.ttf") format("truetype");font-weight:400 800;font-display:block}
+@font-face{font-family:"Inter";src:url("fonts/Inter-Variable.ttf") format("truetype");font-weight:100 900;font-display:block}
+</style>
+</head>
+<body data-theme="light">
+<div id="canvas">
+  <div id="paper">
+    <div id="viewer"></div>
+    <div class="side-nav side-nav-left">
+      <button class="nav-btn" id="prevChapterBtn" title="上一章（Alt+←）">«</button>
+      <button class="nav-btn" id="prevPageBtn" title="上一页（←）">‹</button>
+    </div>
+    <div class="side-nav side-nav-right">
+      <button class="nav-btn" id="nextPageBtn" title="下一页（→）">›</button>
+      <button class="nav-btn" id="nextChapterBtn" title="下一章（Alt+→）">»</button>
+    </div>
+  </div>
+</div>
+
+<div id="selectionBar" class="hidden">
+  <span class="hint">高亮</span>
+  <button class="swatch" data-color="#ffe08a" style="background:#ffe08a" title="黄色"></button>
+  <button class="swatch" data-color="#b7e1a1" style="background:#b7e1a1" title="绿色"></button>
+  <button class="swatch" data-color="#a8d8f0" style="background:#a8d8f0" title="蓝色"></button>
+  <button class="swatch" data-color="#f5b7c4" style="background:#f5b7c4" title="粉色"></button>
+  <span class="divider"></span>
+  <button id="noteBtn">笔记</button>
+  <button id="copyBtn">复制</button>
+</div>
+
+<div id="loading">正在加载…</div>
+
+<script src="vendor/pdf.min.js"></script>
+<script src="vendor/foliate-js/foliate.bundle.js"></script>
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script src="reader.js"></script>
+</body>
+</html>

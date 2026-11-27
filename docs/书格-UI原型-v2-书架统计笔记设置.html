@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>书格 · UI 原型 v2（书架 / 统计 / 笔记 / 设置）</title>
+<style>
+:root{--canvas:#eae6de;--paper:#fbf8f0;--chrome:#f3eee2;--panel:#fffdf7;--ink:#2f2a22;
+      --muted:#8a8272;--border:#ded6c4;--accent:#b5813f;--ok:#5c9a72;--warn:#c08a3e;--err:#b4544a}
+*{box-sizing:border-box}
+body{margin:0;background:#dcd6c9;font-family:"LXGW WenKai","Microsoft YaHei",system-ui,sans-serif;color:var(--ink)}
+.stage{width:1460px;margin:24px auto 60px}
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tabs button{border:1px solid #b9ae97;background:#f6f1e6;padding:7px 16px;border-radius:9px;font:inherit;font-size:13px;cursor:pointer;color:#4a4234}
+.tabs button.on{background:#2f2a22;color:#f6f0e2;border-color:#2f2a22}
+.screen{display:none}.screen.on{display:block}
+.win{width:1440px;height:880px;background:var(--canvas);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;
+     box-shadow:0 16px 44px rgba(60,48,30,.28);position:relative}
+.top{height:48px;display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--chrome);border-bottom:1px solid var(--border)}
+.ib{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--muted);cursor:pointer}
+.ib:hover{background:rgba(0,0,0,.05);color:var(--ink)}
+.brand{font-size:15px;font-weight:600;letter-spacing:.05em}
+.lib{font-size:11px;color:var(--muted)}
+.grow{flex:1}
+.search{flex:0 0 280px;height:30px;background:var(--paper);border:1px solid var(--border);border-radius:16px;display:flex;
+        align-items:center;gap:8px;padding:0 12px;font-size:12.5px;color:var(--muted)}
+.btn{height:30px;border-radius:8px;border:1px solid var(--border);background:var(--paper);color:var(--ink);
+     display:flex;align-items:center;gap:6px;padding:0 12px;font-size:12.5px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fffdf7;font-weight:600}
+.body{flex:1;display:flex;min-height:0}
+.nav{width:216px;background:var(--chrome);border-right:1px solid var(--border);padding:8px 10px;overflow:auto}
+.item{height:38px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:8px;font-size:13px;color:#443c2f;cursor:pointer}
+.item:hover{background:rgba(0,0,0,.045)}
+.item.on{background:var(--paper);box-shadow:inset 3px 0 0 var(--accent)}
+.item .n{margin-left:auto;font-size:11px;color:var(--muted);background:#e5ddcc;border-radius:9px;padding:1px 7px}
+.item .ic{width:14px;text-align:center;color:#8b8170;font-size:12px}
+.grp{font-size:11px;color:var(--muted);letter-spacing:.08em;padding:14px 10px 6px}
+.main{flex:1;display:flex;flex-direction:column;background:var(--paper);min-width:0;position:relative}
+.toolbar{height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--border);background:#faf6ec}
+.chip{border:1px solid var(--border);background:var(--panel);border-radius:8px;height:28px;display:flex;align-items:center;
+      gap:6px;padding:0 10px;font-size:12px;color:#4a4234;cursor:pointer}
+.chip.on{border-color:var(--accent);color:var(--accent);background:#fff}
+.seg{display:flex;background:#e2dbcb;border-radius:9px;padding:3px}
+.seg i{width:30px;height:26px;border-radius:7px;display:grid;place-items:center;font-style:normal;font-size:13px;color:#6f6553;cursor:pointer}
+.seg i.on{background:var(--paper);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.select{height:28px;border:1px solid var(--border);background:var(--panel);border-radius:8px;font:inherit;font-size:12px;color:#4a4234;padding:0 8px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:11px}
+
+/* 书架网格 */
+.shelf{flex:1;overflow:auto;padding:18px 18px 30px}
+.shelf-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:12px;color:var(--muted)}
+.shelf-head b{color:var(--ink);font-size:13px}
+.grid{display:grid;gap:18px}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g6{grid-template-columns:repeat(6,1fr)}
+.bk{cursor:pointer}
+.bk .cv{height:210px;border-radius:7px;background:linear-gradient(150deg,#cbb98c,#7f7248);box-shadow:0 6px 16px rgba(70,56,32,.2);position:relative;transition:.16s}
+.bk:hover .cv{transform:translateY(-3px)}
+.bk .cv .st{position:absolute;left:6px;top:6px;font-size:9px;background:rgba(255,252,244,.92);border-radius:4px;padding:1px 5px;color:#6b6150}
+.bk .cv .star{position:absolute;right:6px;top:5px;color:#f2c14e;font-size:13px;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.bk .t{margin-top:8px;font-size:12.5px;line-height:1.35;height:34px;overflow:hidden}
+.bk .a{font-size:11px;color:var(--muted);margin-top:3px;display:flex;justify-content:space-between}
+.mini{height:3px;background:#e6ddca;border-radius:2px;margin-top:6px}
+.mini i{display:block;height:100%;border-radius:2px;background:var(--accent)}
+
+/* 统计 */
+.stats{flex:1;padding:20px 22px;overflow:auto}
+.cards4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.stat{padding:14px 16px}
+.stat h6{margin:0 0 6px;font-size:11px;color:var(--muted);letter-spacing:.08em;font-weight:600}
+.stat b{font-size:26px;font-weight:600;letter-spacing:.02em}
+.stat span{font-size:11.5px;color:var(--muted);margin-left:6px}
+.heat{margin-top:18px;padding:14px 16px}
+.heat .hh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.heat .hh h6{margin:0;font-size:11px;color:var(--muted);letter-spacing:.08em}
+.heat .mon{display:flex;gap:3px}
+.heat .col{display:flex;flex-direction:column;gap:3px}
+.heat .o{width:14px;height:14px;border-radius:3px;background:#eee7d7}
+.heat .o.l1{background:#e6d3ad}.heat .o.l2{background:#d8bb84}.heat .o.l3{background:#c49b58}.heat .o.l4{background:#a8783a}
+.two{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-top:14px}
+.rank{padding:14px 16px}
+.rank h6{margin:0 0 10px;font-size:11px;color:var(--muted);letter-spacing:.08em}
+.rline{display:flex;align-items:center;gap:10px;height:36px;font-size:12.5px}
+.rline .n{width:16px;color:var(--muted);font-size:11px}
+.rline .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rline .bar{width:120px;height:6px;background:#eee7d7;border-radius:3px;overflow:hidden}
+.rline .bar i{display:block;height:100%;background:var(--accent)}
+.rline .v{width:52px;text-align:right;font-size:11.5px;color:var(--muted)}
+
+/* 笔记 */
+.notes{flex:1;display:flex;min-height:0}
+.nlist{flex:1;overflow:auto;padding:6px 0}
+.nrow{display:flex;gap:12px;padding:14px 18px;border-bottom:1px solid #f0eada}
+.nrow:hover{background:#fbf6ea}
+.nbar{width:3px;border-radius:2px;background:#f2c14e}
+.nbar.b{background:#8fb3d9}.nbar.g{background:#9cc39a}.nbar.r{background:#d99c98}.nbar.p{background:#b6a4d9}
+.nbody{flex:1;min-width:0}
+.nb1{font-size:12px;color:var(--muted);display:flex;gap:8px}
+.nb2{font-size:13.5px;line-height:1.7;margin:6px 0 4px;background:#f7f0dd;border-radius:5px;padding:6px 8px}
+.nb3{font-size:11.5px;color:#8b8170}
+.nside{width:300px;border-left:1px solid var(--border);background:var(--chrome);padding:14px}
+.nside h6{margin:0 0 10px;font-size:11px;color:var(--muted);letter-spacing:.08em}
+
+/* 设置 */
+.settings{flex:1;display:flex;min-height:0;background:var(--canvas)}
+.scol{width:190px;padding:16px 10px;border-right:1px solid var(--border);background:var(--chrome)}
+.scol .si{height:38px;display:flex;align-items:center;gap:9px;padding:0 12px;border-radius:8px;font-size:13px;color:#443c2f;cursor:pointer}
+.scol .si.on{background:var(--paper);box-shadow:inset 3px 0 0 var(--accent);font-weight:600}
+.scol .si .ic{width:14px;text-align:center;color:#8b8170}
+.sbody{flex:1;overflow:auto;padding:22px 26px}
+.sbody h2{margin:0 0 4px;font-size:17px;font-weight:600}
+.sbody p.sub{margin:0 0 18px;font-size:12px;color:var(--muted)}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.pc{padding:14px 16px}
+.pc h5{margin:0 0 10px;font-size:11.5px;color:var(--muted);letter-spacing:.08em;font-weight:600}
+.row{display:flex;align-items:center;justify-content:space-between;height:38px;font-size:12.5px;border-bottom:1px solid #f2ecdc}
+.row:last-child{border-bottom:0}
+.swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.sw{height:36px;border-radius:8px;border:2px solid transparent;cursor:pointer}
+.sw.on{border-color:var(--ink)}
+.thumbs{display:flex;gap:8px}
+.th{width:64px;height:46px;border-radius:7px;border:1px solid var(--border);cursor:pointer;position:relative;overflow:hidden}
+.th.on{border-color:var(--accent);box-shadow:0 0 0 2px rgba(181,129,63,.18)}
+.th span{position:absolute;bottom:2px;left:4px;font-size:9px;color:rgba(0,0,0,.5)}
+.stepper{display:flex;align-items:center;gap:9px}
+.stepper b{min-width:40px;text-align:center;font-size:13px}
+.stepper i{width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:#fffdf7;display:grid;place-items:center;
+           font-style:normal;color:#6b6150;cursor:pointer}
+.toggle{width:38px;height:20px;border-radius:10px;background:#d9d0bc;position:relative;cursor:pointer}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.15s}
+.toggle.on::after{left:20px}
+.kbd-table{width:100%;border-collapse:collapse;font-size:12px}
+.kbd-table td{padding:7px 0;border-bottom:1px solid #f2ecdc;color:#4a4234}
+.kbd-table td:last-child{text-align:right}
+.key{display:inline-block;border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;background:#fffdf7;
+     padding:1px 6px;font-size:11px;color:#5d5445;margin-left:5px}
+.status{height:28px;display:flex;align-items:center;gap:16px;padding:0 14px;background:var(--chrome);border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="tabs">
+    <button class="on" onclick="show(0,this)">④ 我的书架 · 网格 + 列数 + 排序分组</button>
+    <button onclick="show(1,this)">⑤ 阅读统计</button>
+    <button onclick="show(2,this)">⑥ 笔记与高亮</button>
+    <button onclick="show(3,this)">⑦ 设置（Readest 式分组）</button>
+  </div>
+
+  <!-- ④ 书架 -->
+  <div class="screen on">
+    <div class="win">
+      <div class="top">
+        <div class="ib">☰</div><div class="brand">书格</div><div class="lib">我的书架</div>
+        <div class="search">⌕ 搜索 书名 / 作者 / 标签</div><div class="grow"></div>
+        <div class="btn primary">＋ 添加书籍</div><div class="btn">⋯</div><div class="ib">☾</div><div class="ib">⚙</div>
+      </div>
+      <div class="body">
+        <div class="nav">
+          <div class="grp">书库</div>
+          <div class="item on"><span class="ic">▤</span>我的书架<span class="n">1872</span></div>
+          <div class="item"><span class="ic">★</span>喜爱<span class="n">36</span></div>
+          <div class="item"><span class="ic">◔</span>在读<span class="n">12</span></div>
+          <div class="item"><span class="ic">✓</span>已读<span class="n">148</span></div>
+          <div class="grp">内容</div>
+          <div class="item"><span class="ic">✎</span>笔记与高亮<span class="n">284</span></div>
+          <div class="item"><span class="ic">◔</span>阅读统计</div>
+          <div class="grp">分类</div>
+          <div class="item"><span class="ic">☺</span>作者</div><div class="item"><span class="ic">◫</span>系列</div>
+          <div class="item"><span class="ic">◇</span>标签</div>
+          <div class="grp">工具</div>
+          <div class="item"><span class="ic">⇄</span>整理</div><div class="item"><span class="ic">⌫</span>清理空目录</div>
+        </div>
+        <div class="main">
+          <div class="toolbar">
+            <div class="chip">分组：作者 ▾</div>
+            <div class="chip">阅读状态：全部 ▾</div>
+            <div class="chip">格式：全部 ▾</div>
+            <div class="chip on">★ 仅喜爱</div>
+            <div class="grow"></div>
+            <span style="font-size:11.5px;color:#8a8272">列数</span>
+            <div class="seg"><i>自动</i><i>4</i><i class="on">6</i><i>8</i></div>
+            <select class="select"><option>排序：阅读进度</option><option>书名</option><option>作者</option><option>添加日期</option><option>出版日期</option><option>阅读时长</option><option>文件大小</option><option>页数</option></select>
+            <div class="chip">↓ 降序</div>
+            <div class="seg"><i>▦</i><i class="on">▤</i><i>☰</i></div>
+          </div>
+          <div class="shelf">
+            <div class="shelf-head"><b>马伯庸</b><span>· 12 本</span><div class="grow"></div><span>按阅读进度降序</span></div>
+            <div class="grid g6">
+              <div class="bk"><div class="cv"><span class="st">在读</span><span class="star">★</span></div><div class="t">风起陇西</div><div class="a"><span>马伯庸</span><span>62%</span></div><div class="mini"><i style="width:62%"></i></div></div>
+              <div class="bk"><div class="cv"><span class="st">已读</span><span class="star">★</span></div><div class="t">长安十二时辰</div><div class="a"><span>马伯庸</span><span>100%</span></div><div class="mini"><i style="width:100%"></i></div></div>
+              <div class="bk"><div class="cv" style="background:linear-gradient(150deg,#b9a89a,#7a6558)"><span class="st">在读</span></div><div class="t">两京十五日</div><div class="a"><span>马伯庸</span><span>18%</span></div><div class="mini"><i style="width:18%"></i></div></div>
+              <div class="bk"><div class="cv" style="background:linear-gradient(150deg,#a9b8a2,#5f7258)"></div><div class="t">古董局中局</div><div class="a"><span>马伯庸</span><span>未读</span></div><div class="mini"></div></div>
+              <div class="bk"><div class="cv" style="background:linear-gradient(150deg,#a8b5c6,#5d6c80)"></div><div class="t">显微镜下的大明</div><div class="a"><span>马伯庸</span><span>未读</span></div><div class="mini"></div></div>
+              <div class="bk"><div class="cv" style="background:linear-gradient(150deg,#c6a9a2,#806158)"><span class="st">已读</span></div><div class="t">食南之徒</div><div class="a"><span>马伯庸</span><span>100%</span></div><div class="mini"><i style="width:100%"></i></div></div>
+              <div class="bk"><div class="cv" style="background:linear-gradient(150deg,#bfb58e,#87805a)"></div><div class="t">三国配角演义</div><div class="a"><span>马伯庸</span><span>未读</span></div><div class="mini"></div></div>
+              <div class="bk"><div class="cv" style="background:linear-gradient(150deg,#9fb5ae,#5c7a72)"></div><div class="t">七侯笔录</div><div class="a"><span>马伯庸</span><span>未读</span></div><div class="mini"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="status"><span>1,872 本</span><span>按作者分组 · 8 组</span><span>列数：固定 6</span><span>排序：阅读进度 ↓</span></div>
+    </div>
+  </div>
+
+  <!-- ⑤ 统计 -->
+  <div class="screen">
+    <div class="win">
+      <div class="top">
+        <div class="ib">☰</div><div class="brand">书格</div><div class="lib">阅读统计</div>
+        <div class="grow"></div><div class="chip">本周 ▾</div><div class="chip">全部书籍 ▾</div><div class="ib">⋯</div>
+      </div>
+      <div class="body">
+        <div class="nav">
+          <div class="grp">书库</div>
+          <div class="item"><span class="ic">▤</span>我的书架<span class="n">1872</span></div>
+          <div class="item"><span class="ic">★</span>喜爱<span class="n">36</span></div>
+          <div class="item"><span class="ic">◔</span>在读<span class="n">12</span></div>
+          <div class="item"><span class="ic">✓</span>已读<span class="n">148</span></div>
+          <div class="grp">内容</div>
+          <div class="item"><span class="ic">✎</span>笔记与高亮<span class="n">284</span></div>
+          <div class="item on"><span class="ic">◔</span>阅读统计</div>
+        </div>
+        <div class="main">
+          <div class="stats">
+            <div class="cards4">
+              <div class="card stat"><h6>累计阅读</h6><b>126</b><span>小时 40 分</span></div>
+              <div class="card stat"><h6>本周</h6><b>7.2</b><span>小时 · 日均 62 分</span></div>
+              <div class="card stat"><h6>连续阅读</h6><b>18</b><span>天 · 最长 41 天</span></div>
+              <div class="card stat"><h6>读完</h6><b>148</b><span>本 · 平均 4.7 天/本</span></div>
+            </div>
+            <div class="card heat">
+              <div class="hh"><h6>近半年的阅读热力（每格 1 天）</h6><span style="font-size:11px;color:#8a8272">最高单日 4 小时 12 分</span></div>
+              <div class="mon">
+                <div class="col"><div class="o"></div><div class="o l1"></div><div class="o l2"></div><div class="o l1"></div><div class="o l3"></div><div class="o l2"></div><div class="o"></div></div>
+                <div class="col"><div class="o l1"></div><div class="o l3"></div><div class="o l4"></div><div class="o l2"></div><div class="o l1"></div><div class="o l3"></div><div class="o l1"></div></div>
+                <div class="col"><div class="o l2"></div><div class="o l4"></div><div class="o l3"></div><div class="o l4"></div><div class="o l2"></div><div class="o"></div><div class="o l2"></div></div>
+                <div class="col"><div class="o l3"></div><div class="o l2"></div><div class="o l4"></div><div class="o l3"></div><div class="o l1"></div><div class="o l2"></div><div class="o l3"></div></div>
+                <div class="col"><div class="o"></div><div class="o l3"></div><div class="o l2"></div><div class="o l1"></div><div class="o l3"></div><div class="o l4"></div><div class="o l2"></div></div>
+                <div class="col"><div class="o l1"></div><div class="o l2"></div><div class="o l1"></div><div class="o l3"></div><div class="o l2"></div><div class="o l1"></div><div class="o"></div></div>
+              </div>
+            </div>
+            <div class="two">
+              <div class="card rank">
+                <h6>读得最多的书</h6>
+                <div class="rline"><span class="n">1</span><span class="t">风起陇西</span><span class="bar"><i style="width:92%"></i></span><span class="v">11.4h</span></div>
+                <div class="rline"><span class="n">2</span><span class="t">长安十二时辰</span><span class="bar"><i style="width:74%"></i></span><span class="v">9.2h</span></div>
+                <div class="rline"><span class="n">3</span><span class="t">心理学大纲</span><span class="bar"><i style="width:58%"></i></span><span class="v">7.1h</span></div>
+                <div class="rline"><span class="n">4</span><span class="t">对冲基金到底是什么</span><span class="bar"><i style="width:41%"></i></span><span class="v">5.0h</span></div>
+                <div class="rline"><span class="n">5</span><span class="t">礼仪全说</span><span class="bar"><i style="width:28%"></i></span><span class="v">3.4h</span></div>
+              </div>
+              <div class="card rank">
+                <h6>阅读时段分布</h6>
+                <div class="rline"><span class="t">06–09 清晨</span><span class="bar"><i style="width:22%"></i></span><span class="v">8%</span></div>
+                <div class="rline"><span class="t">09–12 上午</span><span class="bar"><i style="width:40%"></i></span><span class="v">14%</span></div>
+                <div class="rline"><span class="t">12–18 下午</span><span class="bar"><i style="width:32%"></i></span><span class="v">11%</span></div>
+                <div class="rline"><span class="t">18–22 晚间</span><span class="bar"><i style="width:100%"></i></span><span class="v">46%</span></div>
+                <div class="rline"><span class="t">22–02 深夜</span><span class="bar"><i style="width:68%"></i></span><span class="v">21%</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="status"><span>统计基于本机阅读记录</span><span>最早记录 2025-03-02</span></div>
+    </div>
+  </div>
+
+  <!-- ⑥ 笔记 -->
+  <div class="screen">
+    <div class="win">
+      <div class="top">
+        <div class="ib">☰</div><div class="brand">书格</div><div class="lib">笔记与高亮 · 284</div>
+        <div class="search">⌕ 在笔记中搜索</div><div class="grow"></div>
+        <div class="btn">导出 ▾</div><div class="ib">⋯</div>
+      </div>
+      <div class="body">
+        <div class="nav">
+          <div class="grp">书库</div>
+          <div class="item"><span class="ic">▤</span>我的书架<span class="n">1872</span></div>
+          <div class="item"><span class="ic">★</span>喜爱<span class="n">36</span></div>
+          <div class="grp">内容</div>
+          <div class="item on"><span class="ic">✎</span>笔记与高亮<span class="n">284</span></div>
+          <div class="item"><span class="ic">◔</span>阅读统计</div>
+          <div class="grp">筛选</div>
+          <div class="item"><span class="ic">▮</span>高亮<span class="n">231</span></div>
+          <div class="item"><span class="ic">✎</span>想法<span class="n">41</span></div>
+          <div class="item"><span class="ic">▣</span>书签<span class="n">12</span></div>
+        </div>
+        <div class="main" style="flex-direction:row">
+          <div class="notes" style="flex:1">
+            <div class="nlist">
+              <div class="nrow"><div class="nbar"></div><div class="nbody">
+                <div class="nb1"><span>风起陇西</span><span>· 第三章 22%</span></div>
+                <div class="nb2">人间常有些散仙野妖，受了冤屈无处申诉，要来天庭击鼓鸣冤。</div>
+                <div class="nb3">高亮 · 2026-11-25 22:14</div></div></div>
+              <div class="nrow"><div class="nbar b"></div><div class="nbody">
+                <div class="nb1"><span>心理学大纲</span><span>· 第七章 41%</span></div>
+                <div class="nb2">注意不是一种状态，而是一个不断选择的过程。</div>
+                <div class="nb3">高亮 + 想法：<i>"和我的理解接近，但更强调动态"</i> · 11-24</div></div></div>
+              <div class="nrow"><div class="nbar g"></div><div class="nbody">
+                <div class="nb1"><span>对冲基金到底是什么</span><span>· 第二章 12%</span></div>
+                <div class="nb2">杠杆不是放大器，是时间机器——它把未来的风险挪到今天。</div>
+                <div class="nb3">高亮 · 11-24</div></div></div>
+              <div class="nrow"><div class="nbar p"></div><div class="nbody">
+                <div class="nb1"><span>长安十二时辰</span><span>· 第十八章 76%</span></div>
+                <div class="nb2">这城里每个人都在算，算到最后才发现，算的是自己。</div>
+                <div class="nb3">高亮 · 11-21</div></div></div>
+            </div>
+          </div>
+          <div class="nside">
+            <h6>按书筛选</h6>
+            <div class="row"><span>风起陇西</span><span style="color:#8a8272">68</span></div>
+            <div class="row"><span>心理学大纲</span><span style="color:#8a8272">42</span></div>
+            <div class="row"><span>长安十二时辰</span><span style="color:#8a8272">31</span></div>
+            <h6 style="margin-top:18px">高亮颜色</h6>
+            <div style="display:flex;gap:8px">
+              <div class="sw on" style="width:44px;background:#f2c14e"></div>
+              <div class="sw" style="width:44px;background:#d99c98"></div>
+              <div class="sw" style="width:44px;background:#9cc39a"></div>
+              <div class="sw" style="width:44px;background:#8fb3d9"></div>
+              <div class="sw" style="width:44px;background:#b6a4d9"></div>
+            </div>
+            <p style="font-size:11px;color:#8a8272;line-height:1.6;margin-top:10px">黄/红/绿/蓝/紫为默认五色，可在设置里自定义，或加一支自选色。</p>
+          </div>
+        </div>
+      </div>
+      <div class="status"><span>284 条笔记</span><span>涉及 63 本书</span></div>
+    </div>
+  </div>
+
+  <!-- ⑦ 设置 -->
+  <div class="screen">
+    <div class="win">
+      <div class="top">
+        <div class="ib">☰</div><div class="brand">书格</div><div class="lib">设置</div><div class="grow"></div><div class="ib">×</div>
+      </div>
+      <div class="body">
+        <div class="settings">
+          <div class="scol">
+            <div class="si on"><span class="ic">◐</span>外观</div>
+            <div class="si"><span class="ic">▤</span>书库</div>
+            <div class="si"><span class="ic">▥</span>阅读</div>
+            <div class="si"><span class="ic">✎</span>笔记与高亮</div>
+            <div class="si"><span class="ic">⌨</span>快捷键</div>
+            <div class="si"><span class="ic">⇄</span>整理与命名</div>
+            <div class="si"><span class="ic">☁</span>识别与网络</div>
+            <div class="si"><span class="ic">ⓘ</span>关于</div>
+          </div>
+          <div class="sbody">
+            <h2>外观</h2>
+            <p class="sub">界面主题与书库主题分开设置：一个管菜单和列表，一个管书架和阅读纸面。</p>
+            <div class="sgrid">
+              <div class="card pc">
+                <h5>界面主题</h5>
+                <div class="row"><span>模式</span><div class="seg" style="width:150px"><i class="on">跟随系统</i><i>白天</i><i>夜间</i></div></div>
+                <div class="row"><span>主色</span>
+                  <div style="display:flex;gap:6px">
+                    <div class="sw on" style="width:22px;height:22px;border-radius:6px;background:#b5813f"></div>
+                    <div class="sw" style="width:22px;height:22px;border-radius:6px;background:#5c7f9a"></div>
+                    <div class="sw" style="width:22px;height:22px;border-radius:6px;background:#7a8f5f"></div>
+                    <div class="sw" style="width:22px;height:22px;border-radius:6px;background:#a0605a"></div>
+                  </div></div>
+                <div class="row"><span>窗口标题栏与菜单同色</span><div class="toggle on"></div></div>
+              </div>
+              <div class="card pc">
+                <h5>书库主题</h5>
+                <div class="thumbs" style="margin:4px 0 8px">
+                  <div class="th on" style="background:#fbf8f0"><span>米黄</span></div>
+                  <div class="th" style="background:#e8e6e1"><span>灰</span></div>
+                  <div class="th" style="background:#e6efe2"><span>草绿</span></div>
+                  <div class="th" style="background:#23211d"><span>夜间</span></div>
+                </div>
+                <div class="row"><span>书架背景图</span><div class="btn" style="height:26px">导入图片</div></div>
+                <div class="row"><span>模糊</span><div class="stepper"><i>−</i><b>12</b><i>＋</i></div></div>
+                <div class="row"><span>不透明度</span><div class="stepper"><i>−</i><b>40</b><i>＋</i></div></div>
+              </div>
+            </div>
+            <div class="sgrid" style="margin-top:14px">
+              <div class="card pc">
+                <h5>阅读模式</h5>
+                <div class="row"><span>排版</span><div class="seg" style="width:150px"><i class="on">分页</i><i>滚动</i></div></div>
+                <div class="row"><span>点击左右两侧翻页</span><div class="toggle on"></div></div>
+                <div class="row"><span>禁用双击</span><div class="toggle"></div></div>
+                <div class="row"><span>自动翻页</span><div class="toggle"></div></div>
+                <div class="row"><span>自动翻页间隔</span><div class="stepper"><i>−</i><b>30s</b><i>＋</i></div></div>
+              </div>
+              <div class="card pc">
+                <h5>辅助阅读</h5>
+                <div class="row"><span>阅读尺（横线跟随）</span><div class="toggle"></div></div>
+                <div class="row"><span>阅读遮罩（上下渐隐）</span><div class="toggle on"></div></div>
+                <div class="row"><span>页眉显示时间与进度</span><div class="toggle on"></div></div>
+                <div class="row"><span>翻页动画</span><select class="select" style="width:120px"><option>卷角</option><option>推进</option><option>直接</option></select></div>
+                <div class="row"><span>双栏阈值</span><div class="stepper"><i>−</i><b>1100</b><i>＋</i></div></div>
+              </div>
+            </div>
+            <div class="card pc" style="margin-top:14px">
+              <h5>快捷键（可改，保存在 prefs.json）</h5>
+              <table class="kbd-table">
+                <tr><td>下一页 / 上一页</td><td><span class="key">→</span><span class="key">←</span><span class="key">Space</span></td></tr>
+                <tr><td>章内跳转 / 章节跳转</td><td><span class="key">J</span><span class="key">K</span><span class="key">Shift+J</span></td></tr>
+                <tr><td>目录 / 侧栏</td><td><span class="key">Ctrl+B</span></td></tr>
+                <tr><td>搜索</td><td><span class="key">Ctrl+F</span></td></tr>
+                <tr><td>字号 / 行距</td><td><span class="key">Ctrl+=</span><span class="key">Ctrl+-</span></td></tr>
+                <tr><td>全屏</td><td><span class="key">F11</span></td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="status"><span>设置即时生效，按书独立保存阅读外观</span></div>
+    </div>
+  </div>
+</div>
+<script>
+function show(i,el){
+  document.querySelectorAll('.screen').forEach((s,k)=>s.classList.toggle('on',k===i));
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
+</script>
+</body>
+</html>

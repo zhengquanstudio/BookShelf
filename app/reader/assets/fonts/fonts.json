@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "note": "字体内部 family 名，必须与 name 表一致；TRAE 渲染下拉时按本文件，不要硬编码。",
+  "fonts": [
+    { "key": "wenkai", "label": "霞鹜文楷", "group": "中文", "family": "LXGW WenKai", "file": "LXGWWenKai-Regular.ttf", "kind": "serif", "weight": "400", "default": true },
+    { "key": "source-serif-cn", "label": "思源宋体", "group": "中文", "family": "Source Han Serif CN", "file": "SourceHanSerifCN-Regular.otf", "kind": "serif", "weight": "400" },
+    { "key": "heart-serif", "label": "霞鹜新明", "group": "中文", "family": "LXGW Heart Serif CHS", "file": "LXGWHeartSerifCHS.ttf", "kind": "serif", "weight": "400" },
+    { "key": "noto-sans-sc", "label": "思源黑体（无衬线）", "group": "中文", "family": "Noto Sans SC", "file": "NotoSansSC-Variable.ttf", "kind": "sans", "weight": "100 900" },
+    { "key": "literata", "label": "Literata", "group": "English", "family": "Literata", "file": "Literata-Variable.ttf", "kind": "serif", "weight": "200 900", "default": true },
+    { "key": "source-serif-4", "label": "Source Serif 4", "group": "English", "family": "Source Serif 4", "file": "SourceSerif4-Variable.ttf", "kind": "serif", "weight": "200 900" },
+    { "key": "eb-garamond", "label": "EB Garamond", "group": "English", "family": "EB Garamond", "file": "EBGaramond-Variable.ttf", "kind": "serif", "weight": "400 800" },
+    { "key": "inter", "label": "Inter（界面）", "group": "English", "family": "Inter", "file": "Inter-Variable.ttf", "kind": "sans", "weight": "100 900" }
+  ],
+  "fallback": { "cjk": ["LXGW WenKai", "Source Han Serif CN", "serif"], "latin": ["Literata", "Source Serif 4", "serif"] }
+}

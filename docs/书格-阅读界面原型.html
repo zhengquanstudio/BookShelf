@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>书格 · 阅读界面原型 v2</title>
+<style>
+:root{
+  --bg:#efe8d8; --paper:#f9f5e9; --ink:#33302a; --muted:#8b8371; --line:#dfd6c2;
+  --chrome:#efe8d8; --panel:#fffdf6; --accent:#a97c3c; --shadow:0 18px 40px rgba(70,56,32,.18);
+  --pw:560px; --fs:19px; --lh:1.95;
+}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"LXGW WenKai","Source Han Serif SC","Microsoft YaHei",serif;overflow:hidden}
+#app{position:relative;height:100vh;display:flex;flex-direction:column}
+
+/* 顶栏 */
+#topbar{height:52px;display:flex;align-items:center;gap:9px;padding:0 12px;background:var(--chrome);
+        border-bottom:1px solid var(--line);transition:transform .22s ease,opacity .22s ease;z-index:20}
+#topbar.hide{transform:translateY(-100%);opacity:0;pointer-events:none;position:absolute;left:0;right:0}
+.tb{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--muted);cursor:pointer;font-size:15px;flex:0 0 auto}
+.tb:hover{background:rgba(0,0,0,.05);color:var(--ink)}
+.tb.on{background:rgba(169,124,60,.14);color:var(--accent)}
+.mini-cv{width:26px;height:36px;border-radius:3px;background:linear-gradient(150deg,#c7b284,#7c6c46);
+        box-shadow:0 3px 8px rgba(70,56,32,.25);flex:0 0 auto;cursor:pointer}
+.title-wrap{display:flex;flex-direction:column;justify-content:center;min-width:0;line-height:1.25}
+.book-title{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px;cursor:pointer}
+.book-author{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px}
+.info-dot{width:19px;height:19px;border-radius:50%;border:1px solid var(--line);background:var(--panel);
+          display:grid;place-items:center;font-size:10.5px;color:var(--muted);cursor:pointer;flex:0 0 auto;font-style:italic;margin-left:2px}
+.info-dot:hover{border-color:var(--accent);color:var(--accent)}
+.grow{flex:1}
+
+/* 侧栏 */
+#side{position:absolute;top:0;bottom:0;left:0;width:268px;background:var(--chrome);border-right:1px solid var(--line);
+      display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .24s ease;z-index:15;
+      box-shadow:8px 0 24px rgba(70,56,32,.08)}
+#side.open{transform:none}
+#side .head{display:flex;gap:11px;padding:14px 14px 12px;border-bottom:1px solid var(--line)}
+#side .cv{width:52px;height:72px;border-radius:4px;background:linear-gradient(150deg,#c7b284,#7c6c46);
+          box-shadow:0 4px 10px rgba(70,56,32,.22);flex:0 0 auto;display:grid;place-items:center;color:#fff8e6;font-size:9px;letter-spacing:.16em}
+#side .bt{font-size:13.5px;font-weight:600;line-height:1.35}
+#side .ba{font-size:11px;color:var(--muted);margin-top:3px}
+#side .bb{font-size:10px;color:#a2947a;margin-top:6px;border:1px solid var(--line);border-radius:4px;padding:1px 5px;display:inline-block}
+.toc{flex:1;overflow:auto;padding:4px 0 10px}
+.ch{display:flex;align-items:center;gap:10px;height:36px;padding:0 16px;font-size:12.5px;color:#4b4438;cursor:pointer}
+.ch:hover{background:rgba(0,0,0,.04)}
+.ch.on{background:rgba(169,124,60,.12);box-shadow:inset 3px 0 0 var(--accent);font-weight:600}
+.ch .n{margin-left:auto;font-size:11px;color:var(--muted)}
+.side-tabs{height:46px;display:flex;border-top:1px solid var(--line)}
+.side-tabs div{flex:1;display:grid;place-items:center;gap:2px;font-size:11px;color:var(--muted);cursor:pointer}
+.side-tabs div.on{color:var(--accent)}
+.side-tabs em{font-style:normal;font-size:14px;line-height:1}
+
+/* 书页：单页 / 双页摊开 */
+#stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;padding:26px 22px;perspective:1600px}
+.book{display:flex;height:100%;width:min(calc(var(--pw) * 2 + 3px),100%);transition:width .25s ease;
+      filter:drop-shadow(0 16px 34px rgba(70,56,32,.16))}
+.book.single{width:min(var(--pw),100%)}
+.book.single #pgR{display:none}
+.pg{flex:1;background:var(--paper);padding:52px 56px 38px;overflow:hidden;position:relative;
+    display:flex;flex-direction:column;transition:transform .2s ease,opacity .2s ease}
+#pgL{border-radius:3px 1px 1px 3px;box-shadow:inset -1px 0 0 rgba(150,132,98,.22),inset -14px 0 22px -18px rgba(90,72,44,.55)}
+#pgR{border-radius:1px 3px 3px 1px;box-shadow:inset 1px 0 0 rgba(150,132,98,.22),inset 14px 0 22px -18px rgba(90,72,44,.55)}
+.book.single #pgL{border-radius:3px;box-shadow:none}
+.pg h3{margin:0 0 22px;text-align:center;font-size:16.5px;letter-spacing:.14em;font-weight:600;color:#4a4335}
+.pg p{margin:0 0 13px;font-size:var(--fs);line-height:var(--lh);text-indent:2em;color:var(--ink);text-align:justify}
+.pg p .hl{background:#f2c14e66;border-radius:2px;padding:0 1px}
+.pg .no{margin-top:auto;padding-top:14px;text-align:center;font-size:11px;color:#a89a7c;letter-spacing:.08em}
+.book.turn-next{animation:tn .34s cubic-bezier(.45,.05,.55,.95)}
+.book.turn-prev{animation:tp .34s cubic-bezier(.45,.05,.55,.95)}
+@keyframes tn{0%{opacity:1}42%{opacity:.24;transform:perspective(1400px) rotateY(-8deg) translateX(-2%)}100%{opacity:1;transform:none}}
+@keyframes tp{0%{opacity:1}42%{opacity:.24;transform:perspective(1400px) rotateY(8deg) translateX(2%)}100%{opacity:1;transform:none}}
+
+.zone{position:absolute;top:0;bottom:0;width:14%;cursor:pointer;z-index:6}
+.zone.l{left:0}.zone.r{right:0}
+.turn{position:absolute;top:50%;transform:translateY(-50%);width:30px;height:54px;display:grid;place-items:center;
+      color:var(--muted);font-size:22px;opacity:0;transition:opacity .2s;cursor:pointer;z-index:8;user-select:none}
+.turn.l{left:6px}.turn.r{right:6px}
+#stage:hover .turn{opacity:.72}
+.turn:hover{color:var(--accent);opacity:1}
+.pair{position:absolute;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted);
+      opacity:0;transition:opacity .2s;z-index:8}
+.pair.l{left:40px}.pair.r{right:40px}
+#stage:hover .pair{opacity:.45}
+
+/* 底栏 */
+#bottombar{height:42px;display:flex;align-items:center;gap:14px;padding:0 14px;background:var(--chrome);
+           border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);transition:transform .22s ease,opacity .22s ease;z-index:20}
+#bottombar.hide{transform:translateY(100%);opacity:0;pointer-events:none;position:absolute;left:0;right:0}
+#bottombar .tb{width:26px;height:26px;font-size:14px}
+.prog{flex:1;display:flex;align-items:center;gap:2px;cursor:pointer}
+.prog i{flex:1;height:3px;background:#dcd3be;border-radius:2px}
+.prog i.on{background:var(--accent)}
+.pager{min-width:70px;text-align:right}
+
+/* 浮层 */
+.pop{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+     z-index:30;display:none;overflow:hidden}
+.pop.on{display:block}
+.pop .x{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:var(--muted);cursor:pointer;font-size:14px}
+.pop .x:hover{background:rgba(0,0,0,.05);color:var(--ink)}
+
+#detail{left:120px;top:58px;width:404px}
+#detail .hd{display:flex;gap:14px;padding:16px 16px 12px}
+#detail .cv{width:96px;height:134px;border-radius:6px;background:linear-gradient(150deg,#c7b284,#7c6c46);
+             box-shadow:0 8px 18px rgba(70,56,32,.22);flex:0 0 auto;display:grid;place-items:center;color:#fff8e6;font-size:10px;letter-spacing:.18em}
+#detail .h1{font-size:15.5px;font-weight:600;line-height:1.35}
+#detail .h2{font-size:12px;color:var(--muted);margin-top:5px}
+#detail .tags{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap}
+.tag{font-size:10px;border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:#6d6450;background:#f7f1e0}
+#detail .sec{padding:0 16px 12px}
+#detail .sec h6{margin:0 0 6px;font-size:10.5px;color:var(--muted);letter-spacing:.1em;font-weight:600}
+#detail .kv{display:flex;font-size:11.8px;line-height:1.85}
+#detail .kv .k{width:66px;color:var(--muted);flex:0 0 auto}
+#detail .kv .v{flex:1;overflow:hidden;text-overflow:ellipsis}
+#detail .desc{font-size:11.8px;line-height:1.75;color:#4d4739;max-height:56px;overflow:hidden}
+#detail .acts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:12px 16px 16px;border-top:1px solid var(--line);background:#fbf7ec}
+.ab{height:32px;border-radius:8px;border:1px solid var(--line);background:#fffdf7;display:flex;align-items:center;justify-content:center;
+    gap:5px;font-size:11.5px;color:#4b4438;cursor:pointer}
+.ab:hover{border-color:var(--accent);color:var(--accent)}
+.ab.primary{background:var(--accent);border-color:var(--accent);color:#fffdf7;font-weight:600}
+.ab.ghost{border-style:dashed;color:#8b8371}
+.ab.ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+/* 编辑元数据 */
+#editBox{display:none;padding:0 16px 4px;border-top:1px solid var(--line);padding-top:12px}
+#editBox.on{display:block}
+#editBox h6{margin:0 0 8px;font-size:10.5px;color:var(--muted);letter-spacing:.1em;font-weight:600}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+.fld{display:flex;flex-direction:column;gap:3px}
+.fld label{font-size:10px;color:var(--muted);letter-spacing:.06em}
+.fld input{border:1px solid var(--line);background:#fffdf7;border-radius:6px;height:27px;padding:0 7px;
+           font:inherit;font-size:11.5px;color:var(--ink)}
+.fld input:focus{outline:none;border-color:var(--accent)}
+.fld.wide{grid-column:span 2}
+#editHint{font-size:10.5px;color:var(--muted);line-height:1.6;margin:8px 0 0}
+#editBtns{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 0 12px}
+
+/* 设置 */
+#prefs{right:14px;top:58px;width:360px}
+#prefs .hd{display:flex;align-items:center;gap:2px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.pt{background:transparent;border:0;font:inherit;font-size:12.5px;color:var(--muted);padding:6px 9px;cursor:pointer;border-bottom:2px solid transparent}
+.pt.on{color:var(--ink);font-weight:600;border-bottom-color:var(--accent)}
+#prefs .bd{padding:12px;max-height:70vh;overflow:auto}
+.pc{background:#fffefa;border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:10px}
+.pc h5{margin:0 0 6px;font-size:10.5px;color:var(--muted);letter-spacing:.08em;font-weight:600}
+.pr{display:flex;align-items:center;justify-content:space-between;height:36px;border-bottom:1px solid #f3eddd;font-size:12.5px}
+.pr:last-child{border-bottom:0}
+.stp{display:flex;align-items:center;gap:9px}
+.stp b{min-width:46px;text-align:center;font-size:12.5px}
+.stp i{width:27px;height:27px;border-radius:8px;border:1px solid var(--line);background:#fffdf7;display:grid;place-items:center;
+       font-style:normal;color:#6b6150;cursor:pointer;font-size:13px}
+.stp i:hover{border-color:var(--accent);color:var(--accent)}
+.seg{display:flex;gap:3px;background:#f4eedf;border-radius:8px;padding:3px}
+.seg span{padding:4px 11px;border-radius:6px;font-size:11.5px;color:#6b6150;cursor:pointer;white-space:nowrap}
+.seg span.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.box{width:150px;height:29px;border:1px solid var(--line);border-radius:7px;background:#fffdf7;display:flex;align-items:center;
+     justify-content:space-between;padding:0 9px;font-size:12px}
+.tg{width:36px;height:19px;border-radius:10px;background:#dcd3be;position:relative;cursor:pointer;flex:0 0 auto}
+.tg.on{background:var(--accent)}
+.tg::after{content:"";position:absolute;width:15px;height:15px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.15s}
+.tg.on::after{left:19px}
+.sws{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.sw{height:40px;border-radius:9px;cursor:pointer;border:2px solid transparent}
+.sw.on{border-color:var(--accent)}
+.note{font-size:10.5px;color:var(--muted);line-height:1.6;margin-top:6px}
+.ft{font-size:10.5px;color:var(--muted);text-align:center;padding:4px 0 2px}
+
+#hint{position:absolute;left:50%;transform:translateX(-50%);bottom:56px;background:rgba(47,42,34,.86);color:#f0e8d6;
+      padding:7px 14px;border-radius:20px;font-size:11.5px;transition:opacity .4s;z-index:25;white-space:nowrap;pointer-events:none}
+#hint.gone{opacity:0}
+#toast{position:absolute;left:50%;transform:translateX(-50%) translateY(10px);bottom:70px;background:#2f2a22;color:#f3ecdc;
+       padding:9px 16px;border-radius:9px;font-size:12px;opacity:0;transition:.25s;pointer-events:none;z-index:40}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header id="topbar">
+    <div class="tb" id="btnSide" title="目录 (Ctrl+B)">☰</div>
+    <div class="mini-cv" id="miniCv" title="打开书籍详情"></div>
+    <div class="title-wrap">
+      <div class="book-title" id="titleText">风起陇西</div>
+      <div class="book-author" id="authorText">马伯庸</div>
+    </div>
+    <div class="info-dot" id="btnInfo" title="书籍详情 / 编辑元数据">i</div>
+    <div class="grow"></div>
+    <div class="tb" title="搜索">⌕</div>
+    <div class="tb" title="书签">▮</div>
+    <div class="tb" id="btnPrefs" title="字体 / 版式 / 主题">Aa</div>
+    <div class="tb" title="笔记">✎</div>
+    <div class="tb on" id="btnPin" title="固定侧栏">▣</div>
+    <div class="tb" title="更多">⋯</div>
+  </header>
+
+  <aside id="side">
+    <div class="head">
+      <div class="cv">封面</div>
+      <div style="min-width:0">
+        <div class="bt">风起陇西</div>
+        <div class="ba">马伯庸</div>
+        <div class="bb">EPUB · 已读 · ★</div>
+      </div>
+    </div>
+    <div class="toc">
+      <div class="ch"><span>第一章</span><span class="n">1</span></div>
+      <div class="ch"><span>第二章</span><span class="n">8</span></div>
+      <div class="ch on"><span>第三章</span><span class="n">16</span></div>
+      <div class="ch"><span>第四章</span><span class="n">25</span></div>
+      <div class="ch"><span>第五章</span><span class="n">33</span></div>
+      <div class="ch"><span>第六章</span><span class="n">39</span></div>
+      <div class="ch"><span>第七章</span><span class="n">46</span></div>
+      <div class="ch"><span>第八章</span><span class="n">54</span></div>
+      <div class="ch"><span>第九章</span><span class="n">61</span></div>
+      <div class="ch"><span>第十章</span><span class="n">69</span></div>
+      <div class="ch"><span>第十一章</span><span class="n">76</span></div>
+      <div class="ch"><span>第十二章</span><span class="n">80</span></div>
+      <div class="ch"><span>第十三章</span><span class="n">88</span></div>
+    </div>
+    <div class="side-tabs">
+      <div class="on"><em>▤</em>目录</div>
+      <div><em>✎</em>笔记</div>
+      <div><em>▮</em>书签</div>
+    </div>
+  </aside>
+
+  <main id="stage">
+    <div class="zone l" onclick="turn(-1)"></div>
+    <div class="zone r" onclick="turn(1)"></div>
+    <div class="turn l" onclick="turn(-1)">‹</div>
+    <div class="turn r" onclick="turn(1)">›</div>
+    <div class="pair l">«‹</div>
+    <div class="pair r">›»</div>
+
+    <div class="book" id="book">
+      <div class="pg" id="pgL">
+        <h3>第三章</h3>
+        <p>人间常有些散仙野妖，受了冤屈无处申诉，要来天庭击鼓鸣冤。玉帝有好生之德，只是这冒失之徒若无凭无据，便先受一顿天雷，再打入轮回。</p>
+        <p>李长庚原本还想辩驳一句，被这雷霆震得缩了缩脖子，只得把话咽回去。他抬头看看左右，众仙个个垂目不语，仿佛方才什么都没听见。</p>
+        <p>太白金星点点头，转身出殿。脚下云路走着走着，忽然听见身后有人喊他名字，回头一看，原来是个小猴儿，正抱着一卷竹简追上来。</p>
+        <p>“小猴子总算等到一位管事的人，哪敢怠慢，快嘴快舌把自己的事情一发说了。”</p>
+        <div class="no" id="noL">16</div>
+      </div>
+      <div class="pg" id="pgR">
+        <p>原来这六耳猕猴本是个野猴精，一直在山中潜心修行，一心想走飞升的正途。可他修了三百余年，连个山神都没混上，反倒被一只不知从哪来的妖道占了洞府。</p>
+        <p>李长庚听完，捋着胡子沉吟半晌。这案子说大不大，说小不小，可牵扯到妖道背后是谁，就不好办了。他伸手拍了拍猴儿的肩膀：<span class="hl">“你先别急，这事我得慢慢查。”</span></p>
+        <p>猴儿一听，眼泪就下来了，连声道谢，又怕他反悔，赶紧把竹简塞进他怀里，转身就跑，跑了几步还回头喊：“大仙，我可等着您呢！”</p>
+        <p>李长庚低头看看怀里那卷竹简，卷得歪歪扭扭，一看就是自己削的，毛刺都没刮干净。他忍不住笑了一下，随手把它收进袖中，抬脚往南天门去。</p>
+        <p>刚走两步，又停住，回头问身边童子：“今日当值的，是不是那个新来的？”</p>
+        <div class="no" id="noR">17</div>
+      </div>
+    </div>
+  </main>
+
+  <footer id="bottombar">
+    <div class="tb" onclick="turn(-1)">‹</div>
+    <div class="tb" onclick="turn(1)">›</div>
+    <div class="prog" id="prog"></div>
+    <div>本章剩余 <b id="remain" style="color:#5d5445">18 分钟 · 8 页</b></div>
+    <div>◷ <span id="clock">22:53</span></div>
+    <div class="pager"><span id="curPage">16–17</span> / <span id="allPage">318</span></div>
+  </footer>
+
+  <!-- 详情 / 编辑 -->
+  <div class="pop" id="detail">
+    <div class="hd">
+      <div class="cv">封面</div>
+      <div style="flex:1;min-width:0">
+        <div class="h1" id="dTitle">风起陇西</div>
+        <div class="h2" id="dSub">马伯庸 · 2005 · 上海文艺出版社</div>
+        <div class="tags"><span class="tag">历史</span><span class="tag">悬疑</span><span class="tag">三国</span><span class="tag">已读</span><span class="tag">★ 喜爱</span></div>
+      </div>
+      <div class="x" onclick="closeAll()">×</div>
+    </div>
+
+    <div class="sec" id="viewBox">
+      <h6>元数据</h6>
+      <div class="kv"><span class="k">语言</span><span class="v">简体中文</span></div>
+      <div class="kv"><span class="k">页数</span><span class="v">328 页</span></div>
+      <div class="kv"><span class="k">出版日期</span><span class="v">2005-04</span></div>
+      <div class="kv"><span class="k">ISBN</span><span class="v">9787532127320</span></div>
+      <div class="kv"><span class="k">格式</span><span class="v">EPUB · 无 DRM · 480 KB</span></div>
+      <div class="kv"><span class="k">系列</span><span class="v">—</span></div>
+      <div class="kv"><span class="k">阅读进度</span><span class="v">16 / 318 · 5%</span></div>
+    </div>
+    <div class="sec" id="viewDesc">
+      <h6>简介</h6>
+      <div class="desc">三国时代的间谍战争。永和三年，蜀汉丞相诸葛亮北伐，陇西风起。一桩看似普通的失窃案，背后牵出两国之间长达数年的暗线……</div>
+    </div>
+
+    <div id="editBox">
+      <h6>编辑元数据</h6>
+      <div class="fgrid">
+        <div class="fld wide"><label>书名</label><input id="eTitle" value="风起陇西"></div>
+        <div class="fld"><label>作者</label><input id="eAuthor" value="马伯庸"></div>
+        <div class="fld"><label>出版社</label><input id="ePub" value="上海文艺出版社"></div>
+        <div class="fld"><label>出版日期</label><input id="eDate" value="2005-04"></div>
+        <div class="fld"><label>页数</label><input id="ePages" value="328"></div>
+        <div class="fld"><label>语言</label><input id="eLang" value="简体中文"></div>
+        <div class="fld"><label>ISBN</label><input id="eIsbn" value="9787532127320"></div>
+        <div class="fld"><label>系列</label><input id="eSeries" value=""></div>
+        <div class="fld"><label>标签（逗号分隔）</label><input id="eTags" value="历史, 悬疑, 三国"></div>
+      </div>
+      <div id="editHint">保存后立即写入书库字段、重算归档路径并更新内嵌 OPF；文件名不合法时先提示再改名，不会静默失败。</div>
+    </div>
+    <div class="acts" id="editBtns" style="display:none">
+      <div class="ab" onclick="cancelEdit()">取消</div>
+      <div class="ab primary" onclick="saveEdit()">保存并同步到书库</div>
+    </div>
+
+    <div class="acts" id="viewActs">
+      <div class="ab" onclick="closeAll()">← 返回书库</div>
+      <div class="ab">◇ 添加标签</div>
+      <div class="ab">✎ 插入笔记</div>
+      <div class="ab">▮ 添加书签</div>
+      <div class="ab">▨ 标注此页</div>
+      <div class="ab ghost" title="翻译功能预留">⇄ 翻译（未开放）</div>
+    </div>
+    <div class="acts" id="editActs">
+      <div class="ab" onclick="beginEdit()">✎ 编辑元数据</div>
+      <div class="ab">⇩ 重新识别</div>
+      <div class="ab">⟲ 恢复内嵌</div>
+    </div>
+  </div>
+
+  <!-- 设置 -->
+  <div class="pop" id="prefs">
+    <div class="hd">
+      <button class="pt on" onclick="tab(this,0)">Aa 字体</button>
+      <button class="pt" onclick="tab(this,1)">◫ 版式</button>
+      <button class="pt" onclick="tab(this,2)">◐ 主题</button>
+      <button class="pt" onclick="tab(this,3)">⇄ 翻页</button>
+      <div class="grow"></div>
+      <div class="x" onclick="closeAll()">×</div>
+    </div>
+
+    <div class="bd" id="bdFont">
+      <div class="pc">
+        <h5>字体</h5>
+        <div class="pr"><span>正文</span><span class="box">霞鹜文楷（内置）▾</span></div>
+        <div class="pr"><span>字号</span><span class="stp"><i onclick="fs(-1)">−</i><b id="fsVal">19</b><i onclick="fs(1)">＋</i></span></div>
+        <div class="pr"><span>行距</span><span class="stp"><i onclick="lh(-.1)">−</i><b id="lhVal">1.95</b><i onclick="lh(.1)">＋</i></span></div>
+        <div class="pr"><span>字重</span><span class="box" style="width:110px">400 ▾</span></div>
+      </div>
+      <div class="pc">
+        <h5>对齐与间距</h5>
+        <div class="pr"><span>两端对齐</span><div class="tg on"></div></div>
+        <div class="pr"><span>首行缩进</span><div class="tg on"></div></div>
+        <div class="pr"><span>段落间距</span><span class="stp"><i>−</i><b>13</b><i>＋</i></span></div>
+      </div>
+      <div class="ft">改动即时生效，按书保存</div>
+    </div>
+
+    <div class="bd" id="bdLayout" style="display:none">
+      <div class="pc">
+        <h5>页面</h5>
+        <div class="pr"><span>展示方式</span><span class="seg"><span class="on" onclick="layout('single',this)">单页</span><span onclick="layout('spread',this)">双页（摊开）</span></span></div>
+        <div class="pr"><span>单页宽度</span><span class="stp"><i onclick="pw(-30)">−</i><b id="pwVal">560</b><i onclick="pw(30)">＋</i></span></div>
+        <div class="pr"><span>边距</span><span class="seg"><span>紧凑</span><span class="on">适中</span><span>舒展</span></span></div>
+        <div class="pr"><span>滚动模式</span><div class="tg"></div></div>
+        <div class="note">双页 = 左右两页同时摊开、中间有书脊阴影；单页 = 只显示一页。窗口不足两页宽度时自动回落单页。</div>
+      </div>
+      <div class="pc">
+        <h5>阅读辅助</h5>
+        <div class="pr"><span>阅读尺</span><div class="tg"></div></div>
+        <div class="pr"><span>上下渐隐遮罩</span><div class="tg on"></div></div>
+        <div class="pr"><span>页眉显示时间</span><div class="tg on"></div></div>
+      </div>
+    </div>
+
+    <div class="bd" id="bdTheme" style="display:none">
+      <div class="pc">
+        <h5>阅读主题</h5>
+        <div class="sws">
+          <div class="sw on" style="background:#f9f5e9" onclick="theme('#efe8d8','#f9f5e9','#33302a',this)"></div>
+          <div class="sw" style="background:#f6ecd7" onclick="theme('#efe3c8','#f8efd9','#38301f',this)"></div>
+          <div class="sw" style="background:#ececea" onclick="theme('#e6e6e3','#f7f7f4','#2f2f2d',this)"></div>
+          <div class="sw" style="background:#e4ede2" onclick="theme('#dfe8dd','#f4f8f1','#2c332c',this)"></div>
+          <div class="sw" style="background:#f7e6e5" onclick="theme('#f2dedd','#fbf1f0','#3a2c2c',this)"></div>
+          <div class="sw" style="background:#e3ecf2" onclick="theme('#dde7ee','#f2f7fa','#2b333a',this)"></div>
+          <div class="sw" style="background:#fbead9" onclick="theme('#f3ddc4','#fdf2e4','#3b2e20',this)"></div>
+          <div class="sw" style="background:#22201c" onclick="theme('#1e1c18','#26231e','#d8cfbe',this)"></div>
+        </div>
+        <div class="note" id="themeNote">当前：米黄 · 纸面 #f9f5e9 · 字色 #33302a</div>
+      </div>
+      <div class="pc">
+        <h5>界面</h5>
+        <div class="pr"><span>顶栏与纸面同色</span><div class="tg on"></div></div>
+        <div class="pr"><span>顶栏自动隐藏</span><div class="tg on"></div></div>
+        <div class="pr"><span>自动隐藏延时</span><span class="stp"><i>−</i><b>1.6s</b><i>＋</i></span></div>
+      </div>
+    </div>
+
+    <div class="bd" id="bdTurn" style="display:none">
+      <div class="pc">
+        <h5>翻页</h5>
+        <div class="pr"><span>动效</span><span class="seg">
+          <span onclick="mode('instant',this)">直接</span>
+          <span onclick="mode('push',this)">推进</span>
+          <span class="on" onclick="mode('flip',this)">翻书</span></span></div>
+        <div class="pr"><span>点击左右两侧翻页</span><div class="tg on"></div></div>
+        <div class="pr"><span>禁用双击</span><div class="tg"></div></div>
+        <div class="pr"><span>自动翻页</span><div class="tg"></div></div>
+        <div class="pr"><span>自动翻页间隔</span><span class="stp"><i>−</i><b>30s</b><i>＋</i></span></div>
+      </div>
+      <div class="pc">
+        <h5>双页方向</h5>
+        <div class="pr"><span>翻页方向</span><span class="seg"><span class="on">从左到右</span><span>从右到左（竖排）</span></span></div>
+        <div class="note">竖排书籍勾选后，右页为起始页，书脊阴影与箭头方向同步反转。</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="hint">顶部唤菜单 · i 看详情并可编辑元数据 · Aa 里切单页/双页</div>
+  <div id="toast">已保存并同步到书库</div>
+</div>
+
+<script>
+let page = 16, total = 318, spread = false;
+const prog = document.getElementById('prog');
+for (let i = 0; i < 16; i++) { const d = document.createElement('i'); prog.appendChild(d); }
+function paint() {
+  document.getElementById('curPage').textContent = spread ? page + '–' + (page + 1) : page;
+  document.getElementById('noL').textContent = page;
+  document.getElementById('noR').textContent = page + 1;
+  document.querySelectorAll('#prog i').forEach((d, i) => d.classList.toggle('on', i < Math.round(page / total * 16)));
+}
+function turn(dir) {
+  const book = document.getElementById('book');
+  if (book.dataset.busy) return;
+  book.dataset.busy = '1';
+  book.classList.add(dir > 0 ? 'turn-next' : 'turn-prev');
+  setTimeout(() => {
+    page = Math.min(total, Math.max(1, page + dir * (spread ? 2 : 1)));
+    paint();
+  }, 150);
+  setTimeout(() => { book.classList.remove('turn-next', 'turn-prev'); delete book.dataset.busy; }, 360);
+}
+function layout(m, el) {
+  spread = m === 'spread';
+  document.getElementById('book').classList.toggle('single', !spread);
+  el.parentNode.querySelectorAll('span').forEach(s => s.classList.remove('on'));
+  el.classList.add('on');
+  paint();
+}
+function openPop(id) { document.querySelectorAll('.pop').forEach(p => p.classList.toggle('on', p.id === id)); }
+function closeAll() { document.querySelectorAll('.pop').forEach(p => p.classList.remove('on')); }
+document.getElementById('btnInfo').onclick = e => { e.stopPropagation(); openPop('detail'); };
+document.getElementById('miniCv').onclick = e => { e.stopPropagation(); openPop('detail'); };
+document.getElementById('btnPrefs').onclick = e => { e.stopPropagation(); openPop('prefs'); };
+document.getElementById('btnSide').onclick = e => { e.stopPropagation(); document.getElementById('side').classList.toggle('open'); };
+document.getElementById('titleText').onclick = e => { e.stopPropagation(); openPop('detail'); };
+document.getElementById('btnPin').onclick = function () { this.classList.toggle('on'); };
+document.body.addEventListener('click', e => {
+  if (!e.target.closest('.pop') && !e.target.closest('.tb') && !e.target.closest('.mini-cv') && !e.target.closest('.book-title')) closeAll();
+});
+
+/* 编辑元数据 */
+function beginEdit() {
+  document.getElementById('viewBox').style.display = 'none';
+  document.getElementById('viewDesc').style.display = 'none';
+  document.getElementById('viewActs').style.display = 'none';
+  document.getElementById('editBox').classList.add('on');
+  document.getElementById('editBtns').style.display = 'grid';
+  document.getElementById('editActs').style.display = 'none';
+}
+function cancelEdit() {
+  document.getElementById('viewBox').style.display = 'block';
+  document.getElementById('viewDesc').style.display = 'block';
+  document.getElementById('viewActs').style.display = 'grid';
+  document.getElementById('editActs').style.display = 'grid';
+  document.getElementById('editBox').classList.remove('on');
+  document.getElementById('editBtns').style.display = 'none';
+}
+function saveEdit() {
+  const t = document.getElementById('eTitle').value.trim() || '未命名';
+  const a = document.getElementById('eAuthor').value.trim() || '佚名';
+  document.getElementById('titleText').textContent = t;
+  document.getElementById('authorText').textContent = a;
+  document.getElementById('dTitle').textContent = t;
+  document.getElementById('dSub').textContent = a + ' · ' + document.getElementById('eDate').value + ' · ' + document.getElementById('ePub').value;
+  cancelEdit();
+  toast('已保存并同步到书库');
+}
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('on'), 2400);
+}
+
+/* 顶栏自动隐藏 */
+let idleTimer;
+function showChrome() {
+  document.getElementById('topbar').classList.remove('hide');
+  document.getElementById('bottombar').classList.remove('hide');
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    if (document.getElementById('side').classList.contains('open')) return;
+    if (document.querySelector('.pop.on')) return;
+    document.getElementById('topbar').classList.add('hide');
+    document.getElementById('bottombar').classList.add('hide');
+  }, 1600);
+}
+document.addEventListener('mousemove', e => {
+  if (e.clientY < 96 || e.clientY > window.innerHeight - 76) showChrome();
+});
+showChrome();
+
+/* 设置项 */
+function tab(el, i) {
+  document.querySelectorAll('#prefs .pt').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  ['bdFont', 'bdLayout', 'bdTheme', 'bdTurn'].forEach((id, k) => {
+    document.getElementById(id).style.display = k === i ? 'block' : 'none';
+  });
+}
+let fontSize = 19, lineHeight = 1.95, pwWidth = 560;
+function fs(d) { fontSize = Math.min(30, Math.max(12, fontSize + d)); document.getElementById('fsVal').textContent = fontSize; document.documentElement.style.setProperty('--fs', fontSize + 'px'); }
+function lh(d) { lineHeight = Math.min(2.6, Math.max(1.2, +(lineHeight + d).toFixed(2))); document.getElementById('lhVal').textContent = lineHeight.toFixed(2); document.documentElement.style.setProperty('--lh', lineHeight); }
+function pw(d) {
+  pwWidth = Math.min(900, Math.max(420, pwWidth + d));
+  document.getElementById('pwVal').textContent = pwWidth;
+  document.documentElement.style.setProperty('--pw', pwWidth + 'px');
+}
+function theme(bg, paper, ink, el) {
+  const dark = ink === '#d8cfbe';
+  const r = document.documentElement.style;
+  r.setProperty('--bg', bg); r.setProperty('--paper', paper); r.setProperty('--ink', ink);
+  r.setProperty('--chrome', bg);
+  r.setProperty('--panel', dark ? '#2c281f' : '#fffdf6');
+  r.setProperty('--line', dark ? '#3d382c' : '#dfd6c2');
+  document.querySelectorAll('#bdTheme .sw').forEach(s => s.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('themeNote').textContent = '当前：' + (dark ? '夜间' : '浅色') + ' · 纸面 ' + paper + ' · 字色 ' + ink;
+}
+let turnMode = 'flip';
+function mode(m, el) { turnMode = m; el.parentNode.querySelectorAll('span').forEach(s => s.classList.remove('on')); el.classList.add('on'); }
+
+function tick() {
+  const d = new Date();
+  document.getElementById('clock').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+tick(); setInterval(tick, 30000);
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeAll(); cancelEdit(); }
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); turn(1); }
+  if (e.key === 'ArrowLeft') turn(-1);
+});
+paint();
+setTimeout(() => document.getElementById('hint').classList.add('gone'), 5600);
+</script>
+</body>
+</html>

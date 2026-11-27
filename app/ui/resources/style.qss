@@ -1,0 +1,846 @@
+/* 书库助手 BookShelf 深色主题（设计 Token 见文档 10.2） */
+
+QWidget {
+    background: #17181b;
+    color: #e7e9ee;
+    font-family: "Microsoft YaHei UI";
+    font-size: 13px;
+}
+
+QMainWindow, #Central {
+    background: #17181b;
+}
+
+#TitleBar {
+    background: #1f2125;
+    border-bottom: 1px solid #33383f;
+}
+
+#Logo {
+    background: #4f8cf7;
+    color: #ffffff;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 11px;
+}
+
+#TitleBarText {
+    color: #e7e9ee;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+QMenuBar {
+    background: #1f2125;
+    color: #a3a9b4;
+    border-bottom: 1px solid #33383f;
+    padding: 2px 6px;
+}
+
+QMenuBar::item {
+    background: transparent;
+    padding: 5px 11px;
+    border-radius: 6px;
+}
+
+QMenuBar::item:selected {
+    background: #2c3036;
+    color: #e7e9ee;
+}
+
+QMenu {
+    background: #25282d;
+    color: #e7e9ee;
+    border: 1px solid #33383f;
+    border-radius: 9px;
+    padding: 6px;
+}
+
+QMenu::item {
+    padding: 6px 22px;
+    border-radius: 6px;
+}
+
+QMenu::item:selected {
+    background: #2c3036;
+}
+
+QToolBar {
+    background: #1f2125;
+    border: none;
+    border-bottom: 1px solid #33383f;
+    spacing: 8px;
+    padding: 0 14px;
+}
+
+/* 顶部操作按钮留足高度，避免中文字上下被裁切 */
+#MainToolBar QPushButton {
+    min-height: 30px;
+}
+
+QPushButton {
+    background: #25282d;
+    border: 1px solid #33383f;
+    border-radius: 7px;
+    color: #e7e9ee;
+    padding: 6px 14px;
+}
+
+QPushButton:hover {
+    background: #2c3036;
+}
+
+QPushButton:pressed {
+    background: #33383f;
+}
+
+#PrimaryButton {
+    background: #4f8cf7;
+    border: 1px solid #4f8cf7;
+    color: #ffffff;
+    font-weight: bold;
+    padding: 7px 18px;
+}
+
+#PrimaryButton:hover {
+    background: #649cf8;
+}
+
+#PrimaryButton:pressed {
+    background: #3f78dd;
+}
+
+#GhostButton {
+    background: #25282d;
+    border: 1px solid #33383f;
+    color: #e7e9ee;
+    padding: 6px 13px;
+}
+
+#GhostButton:hover {
+    background: #2c3036;
+    border-color: #3a4048;
+}
+
+#SearchBox {
+    background: #25282d;
+    border: 1px solid #33383f;
+    border-radius: 7px;
+    padding: 6px 10px;
+    color: #e7e9ee;
+}
+
+#SearchBox:focus {
+    border-color: #4f8cf7;
+}
+
+#NavSidebar {
+    background: #1b1d21;
+    border-right: 1px solid #33383f;
+}
+
+#NavList {
+    background: transparent;
+    border: none;
+    outline: none;
+}
+
+#NavList::item {
+    color: #a3a9b4;
+    border-left: 2px solid transparent;
+    padding-left: 10px;
+    border-radius: 0;
+}
+
+#NavList::item:hover {
+    background: #25282d;
+    color: #e7e9ee;
+}
+
+#NavList::item:selected {
+    background: #2c3036;
+    color: #e7e9ee;
+    border-left: 2px solid #4f8cf7;
+}
+
+QTableView {
+    background: #1f2125;
+    alternate-background-color: #1f2125;
+    border: none;
+    color: #e7e9ee;
+    selection-background-color: rgba(79, 140, 247, 0.10);
+    selection-color: #e7e9ee;
+    gridline-color: #33383f;
+}
+
+QHeaderView::section {
+    background: #1f2125;
+    color: #6f7681;
+    border: none;
+    border-bottom: 1px solid #33383f;
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+QTableView::item {
+    padding-left: 8px;
+    border-bottom: 1px solid #25282d;
+}
+
+#DetailPanel {
+    background: #1f2125;
+    border-left: 1px solid #33383f;
+}
+
+#CoverBox {
+    background: #25282d;
+    border: 1px dashed #3a4048;
+    border-radius: 9px;
+    color: #6f7681;
+}
+
+#DetailTitle {
+    font-size: 16px;
+    font-weight: bold;
+    color: #e7e9ee;
+}
+
+#DetailSub {
+    color: #a3a9b4;
+}
+
+#StatusPill {
+    background: rgba(79, 140, 247, 0.15);
+    color: #4f8cf7;
+    border-radius: 10px;
+    padding: 2px 10px;
+    font-size: 11.5px;
+}
+
+#KvBox {
+    background: #25282d;
+    border-radius: 9px;
+}
+
+#KvRow {
+    color: #a3a9b4;
+    font-size: 12px;
+}
+
+#SectionTitle {
+    color: #a3a9b4;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+#PathBox {
+    background: #1b1d21;
+    border: 1px solid #33383f;
+    border-radius: 7px;
+    color: #6f7681;
+    font-family: Consolas;
+    font-size: 11.5px;
+    padding: 8px;
+}
+
+#LogPanel {
+    background: #1b1d21;
+    border-top: 1px solid #33383f;
+}
+
+#LogView {
+    background: transparent;
+    border: none;
+    color: #a3a9b4;
+    font-family: Consolas;
+    font-size: 12px;
+}
+
+#StatsPanel {
+    background: #1f2125;
+    border-top: 1px solid #33383f;
+    border-left: 1px solid #33383f;
+}
+
+#StatRow {
+    color: #a3a9b4;
+    font-size: 12px;
+}
+
+QSplitter::handle {
+    background: #33383f;
+}
+
+QSplitter::handle:horizontal {
+    width: 1px;
+}
+
+QSplitter::handle:vertical {
+    height: 1px;
+}
+
+QStatusBar {
+    background: #1f2125;
+    color: #6f7681;
+    border-top: 1px solid #33383f;
+}
+
+QStatusBar::item {
+    border: none;
+}
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+    margin: 0;
+}
+
+QScrollBar::handle:vertical {
+    background: #3a4048;
+    border-radius: 5px;
+    min-height: 30px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #4a515a;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: transparent;
+}
+
+QScrollBar:horizontal {
+    background: transparent;
+    height: 10px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #3a4048;
+    border-radius: 5px;
+    min-width: 30px;
+}
+
+QMessageBox {
+    background: #1f2125;
+}
+
+QToolTip {
+    background: #25282d;
+    color: #e7e9ee;
+    border: 1px solid #33383f;
+    padding: 4px 8px;
+}
+
+QComboBox, QSpinBox, QListWidget {
+    background: #25282d;
+    color: #e7e9ee;
+    border: 1px solid #33383f;
+    border-radius: 7px;
+    padding: 5px 8px;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 24px;
+}
+
+QComboBox QAbstractItemView {
+    background: #25282d;
+    color: #e7e9ee;
+    border: 1px solid #33383f;
+    selection-background-color: #2c3036;
+}
+
+QCheckBox {
+    color: #e7e9ee;
+    spacing: 8px;
+    background: transparent;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #4a515a;
+    border-radius: 4px;
+    background: #25282d;
+}
+
+QCheckBox::indicator:checked {
+    background: #4f8cf7;
+    border-color: #4f8cf7;
+}
+
+QProgressBar {
+    background: #25282d;
+    color: #e7e9ee;
+    border: 1px solid #33383f;
+    border-radius: 7px;
+    text-align: center;
+    min-height: 18px;
+}
+
+QProgressBar::chunk {
+    background: #4f8cf7;
+    border-radius: 6px;
+}
+
+#StatCard {
+    background: #25282d;
+    border: 1px solid #33383f;
+    border-radius: 9px;
+    padding: 6px;
+}
+
+#StatValue {
+    color: #e7e9ee;
+    font-size: 21px;
+    font-weight: bold;
+}
+
+QPushButton:disabled {
+    background: #202226;
+    color: #6f7681;
+    border-color: #2c3036;
+}
+
+/* ---- M3 元数据编辑对话框（图 03） ---- */
+#EditBookDialog {
+    background: #17181b;
+}
+
+QLineEdit, QTextEdit {
+    background: #25282d;
+    color: #e7e9ee;
+    border: 1px solid #33383f;
+    border-radius: 7px;
+    padding: 6px 9px;
+    selection-background-color: rgba(79, 140, 247, 0.35);
+}
+
+QLineEdit:focus, QTextEdit:focus {
+    border-color: #4f8cf7;
+}
+
+#QueuePanel {
+    background: #1b1d21;
+    border-right: 1px solid #33383f;
+}
+
+#QueueList {
+    background: transparent;
+    border: none;
+}
+
+#QueueList::item {
+    color: #a3a9b4;
+    padding: 8px 6px;
+    border-radius: 6px;
+}
+
+#QueueList::item:hover {
+    background: #25282d;
+    color: #e7e9ee;
+}
+
+#QueueList::item:selected {
+    background: #2c3036;
+    color: #e7e9ee;
+}
+
+#EditFormScroll, #ResultsScroll {
+    background: transparent;
+    border: none;
+}
+
+#ResultsPanel {
+    background: #1b1d21;
+    border-left: 1px solid #33383f;
+}
+
+#ResultCard {
+    background: #25282d;
+    border: 1px solid #33383f;
+    border-radius: 9px;
+}
+
+#ResultCard:hover {
+    border-color: #4f8cf7;
+}
+
+#ResultTitle {
+    color: #e7e9ee;
+    font-size: 13.5px;
+    font-weight: bold;
+}
+
+/* ---- M4 整理预览（图 04）与设置（图 06） ---- */
+#PreviewDialog, #SettingsDialog, #FilterDialog {
+    background: #17181b;
+}
+
+#PageTitle {
+    color: #e7e9ee;
+    font-size: 16px;
+    font-weight: bold;
+    padding-left: 8px;
+    border-left: 2px solid #4f8cf7;
+}
+
+#StatPill {
+    background: rgba(79, 140, 247, 0.15);
+    color: #8fb6fb;
+    border-radius: 11px;
+    padding: 4px 12px;
+}
+
+#RulesPanel, #ConflictPanel {
+    background: #1b1d21;
+    border: 1px solid #33383f;
+    border-radius: 9px;
+}
+
+#CodeBlock {
+    background: #151619;
+    color: #a3a9b4;
+    border: 1px solid #2c3036;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-family: Consolas, "Microsoft YaHei UI";
+    font-size: 11.5px;
+}
+
+#PreviewTable {
+    background: #1b1d21;
+    alternate-background-color: #1b1d21;
+    border: 1px solid #33383f;
+    border-radius: 9px;
+}
+
+#ConflictScroll {
+    background: transparent;
+    border: none;
+}
+
+#ConflictCard {
+    background: #25282d;
+    border: 1px solid #33383f;
+    border-radius: 9px;
+}
+
+#ConflictTitle {
+    color: #e7e9ee;
+    font-size: 12.5px;
+    font-weight: bold;
+}
+
+#TinyButton {
+    background: #2c3036;
+    border: 1px solid #3a4048;
+    color: #e7e9ee;
+    border-radius: 6px;
+    padding: 3px 9px;
+    font-size: 11.5px;
+}
+
+#TinyButton:hover {
+    border-color: #4f8cf7;
+}
+
+#SettingsNav {
+    background: #1b1d21;
+    border: none;
+    border-right: 1px solid #33383f;
+    padding: 8px;
+    outline: none;
+}
+
+#SettingsNav::item {
+    color: #a3a9b4;
+    padding: 9px 12px;
+    border-radius: 7px;
+    margin: 2px 0;
+}
+
+#SettingsNav::item:hover {
+    background: #25282d;
+    color: #e7e9ee;
+}
+
+#SettingsNav::item:selected {
+    background: #2c3036;
+    color: #e7e9ee;
+    border-left: 2px solid #4f8cf7;
+}
+
+#SettingsStack, #SettingsPageScroll {
+    background: #17181b;
+    border: none;
+}
+
+#SettingLabel {
+    color: #a3a9b4;
+}
+
+#ExampleBox {
+    background: #151619;
+    color: #a3a9b4;
+    border: 1px solid #33383f;
+    border-radius: 7px;
+    padding: 8px;
+}
+
+#SourceList {
+    background: #151619;
+    border: 1px solid #33383f;
+    border-radius: 7px;
+}
+
+#SettingsFooter {
+    background: #1f2125;
+    border-top: 1px solid #33383f;
+}
+
+/* ---- M5 内嵌阅读器（图 05） ---- */
+#ReaderPage {
+    background: #0e0f12;
+}
+
+#ReaderTopBar {
+    background: #1a1c20;
+    border-bottom: 1px solid #2b2f35;
+}
+
+#ReaderBack {
+    background: #25282d;
+    border: 1px solid #33383f;
+    border-radius: 15px;
+    color: #e7e9ee;
+    padding: 6px 16px;
+}
+
+#ReaderBack:hover {
+    background: #2c3036;
+    border-color: #4f8cf7;
+}
+
+#ReaderTitle {
+    color: #e7e9ee;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+#ReaderSub {
+    color: #6f7681;
+    font-size: 10.5px;
+}
+
+#ReaderTool {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: #a3a9b4;
+    padding: 5px 9px;
+    font-size: 12px;
+}
+
+#ReaderTool:hover {
+    background: #25282d;
+    color: #e7e9ee;
+}
+
+#ReaderTool:checked {
+    background: #22262c;
+    color: #e7e9ee;
+    border-color: #33383f;
+}
+
+#ReaderBody {
+    background: #0e0f12;
+}
+
+#ReaderTocPanel {
+    background: #14161a;
+    border-right: 1px solid #2b2f35;
+}
+
+#ReaderSectionTitle {
+    color: #a3a9b4;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+#ReaderTocList {
+    background: transparent;
+    border: none;
+    outline: none;
+}
+
+#ReaderTocList::item {
+    color: #a3a9b4;
+    padding: 7px 8px;
+    border-left: 2px solid transparent;
+    border-radius: 0;
+    font-size: 12px;
+}
+
+#ReaderTocList::item:hover {
+    background: #1c1f24;
+    color: #e7e9ee;
+}
+
+#ReaderTocList::item:selected {
+    background: rgba(79, 140, 247, 0.12);
+    color: #e7e9ee;
+    border-left: 2px solid #4f8cf7;
+}
+
+#ReaderTocMeta {
+    color: #565d67;
+    font-size: 10.5px;
+    line-height: 1.7;
+}
+
+#ReaderBottomBar {
+    background: #1a1c20;
+    border-top: 1px solid #2b2f35;
+}
+
+#ReaderPercent {
+    color: #e7e9ee;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+#ReaderPageLabel, #ReaderRemaining {
+    color: #6f7681;
+    font-size: 11px;
+}
+
+#ReaderProgress::groove:horizontal {
+    height: 4px;
+    background: #2b2f35;
+    border-radius: 2px;
+}
+
+#ReaderProgress::sub-page:horizontal {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4f8cf7, stop:1 #8fb6fb);
+    border-radius: 2px;
+}
+
+#ReaderProgress::handle:horizontal {
+    width: 12px;
+    height: 12px;
+    margin: -4px 0;
+    border-radius: 6px;
+    background: #ffffff;
+    border: 2px solid #4f8cf7;
+}
+
+#ReaderSearchBar {
+    background: #14161a;
+    border-bottom: 1px solid #2b2f35;
+}
+
+#ReaderSearchCount {
+    color: #6f7681;
+    font-size: 11px;
+}
+
+#ReaderBookmarkPanel {
+    background: #1f2125;
+    border: 1px solid #3a4048;
+    border-radius: 10px;
+}
+
+#ReaderBookmarkList {
+    background: transparent;
+    border: none;
+    outline: none;
+}
+
+#ReaderBookmarkList::item {
+    color: #a3a9b4;
+    padding: 6px;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+#ReaderBookmarkList::item:selected {
+    background: #2c3036;
+    color: #e7e9ee;
+}
+
+#ReaderPrefsPopup {
+    background: #1f2125;
+    border: 1px solid #3a4048;
+    border-radius: 9px;
+}
+
+#ReaderPrefsLabel {
+    color: #a3a9b4;
+    font-size: 12px;
+}
+
+#ReaderErrorPage {
+    background: #0e0f12;
+}
+
+#ReaderErrorTitle {
+    color: #e7e9ee;
+    font-size: 17px;
+    font-weight: bold;
+}
+
+#ReaderErrorText {
+    color: #a3a9b4;
+    font-size: 13px;
+}
+
+#ReaderErrorHint {
+    color: #565d67;
+    font-size: 11.5px;
+}
+
+#ReaderPlaceholder {
+    color: #565d67;
+    background: #0e0f12;
+    font-size: 13px;
+}
+
+/* ---- M7 文件夹树 / 使用说明 ---- */
+#FolderTree {
+    background: #25282d;
+    color: #e7e9ee;
+    border: 1px solid #33383f;
+    border-radius: 7px;
+    outline: none;
+}
+
+#FolderTree::item {
+    padding: 5px 4px;
+    border-radius: 5px;
+}
+
+#FolderTree::item:hover {
+    background: #2c3036;
+}
+
+#FolderTree::item:selected {
+    background: rgba(79, 140, 247, 0.18);
+    color: #e7e9ee;
+}
+
+#HelpBrowser {
+    background: #1f2125;
+    color: #d6d9df;
+    border: 1px solid #33383f;
+    border-radius: 7px;
+    padding: 10px 14px;
+    font-size: 13px;
+}
+
+

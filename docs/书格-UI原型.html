@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>书格 · UI 原型</title>
+<style>
+:root{--canvas:#eae6de;--paper:#fbf8f0;--chrome:#f3eee2;--panel:#fffdf7;--ink:#2f2a22;
+      --muted:#8a8272;--border:#ded6c4;--accent:#b5813f;--ok:#5c9a72;--warn:#c08a3e;--err:#b4544a}
+*{box-sizing:border-box}
+body{margin:0;background:#dcd6c9;font-family:"LXGW WenKai","Microsoft YaHei",system-ui,sans-serif;color:var(--ink)}
+.stage{width:1460px;margin:24px auto 60px}
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tabs button{border:1px solid #b9ae97;background:#f6f1e6;padding:7px 16px;border-radius:9px;font:inherit;font-size:13px;cursor:pointer;color:#4a4234}
+.tabs button.on{background:#2f2a22;color:#f6f0e2;border-color:#2f2a22}
+.screen{display:none}.screen.on{display:block}
+.win{width:1440px;height:880px;background:var(--canvas);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;
+     box-shadow:0 16px 44px rgba(60,48,30,.28);position:relative}
+.top{height:48px;display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--chrome);border-bottom:1px solid var(--border)}
+.ib{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--muted);cursor:pointer}
+.ib:hover{background:rgba(0,0,0,.05);color:var(--ink)}
+.brand{font-size:15px;font-weight:600;letter-spacing:.05em}
+.lib{font-size:11px;color:var(--muted)}
+.grow{flex:1}
+.search{flex:0 0 300px;height:30px;background:var(--paper);border:1px solid var(--border);border-radius:16px;display:flex;
+        align-items:center;gap:8px;padding:0 12px;font-size:12.5px;color:var(--muted)}
+.kbd{background:#efe8d9;border-radius:4px;padding:1px 5px;font-size:11px;color:#8b8170}
+.btn{height:30px;border-radius:8px;border:1px solid var(--border);background:var(--paper);color:var(--ink);
+     display:flex;align-items:center;gap:6px;padding:0 12px;font-size:12.5px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fffdf7;font-weight:600}
+.bar{height:56px;display:flex;align-items:center;gap:18px;padding:0 16px}
+.cnt{font-size:12.5px;color:var(--muted);cursor:pointer;padding-bottom:4px;border-bottom:2px solid transparent}
+.cnt b{color:var(--ink);font-weight:600;font-size:14px;margin-right:5px}
+.cnt.on{color:var(--ink);border-bottom-color:var(--accent)}
+.seg{display:flex;background:#e2dbcb;border-radius:9px;padding:3px}
+.seg i{width:30px;height:26px;border-radius:7px;display:grid;place-items:center;font-style:normal;font-size:13px;color:#6f6553;cursor:pointer}
+.seg i.on{background:var(--paper);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.sort{border:1px solid var(--border);background:var(--paper);border-radius:8px;height:28px;font:inherit;font-size:12px;color:#4a4234;padding:0 8px}
+.body{flex:1;display:flex;min-height:0}
+.nav{width:216px;background:var(--chrome);border-right:1px solid var(--border);padding:8px 10px 16px;overflow:auto}
+.item{height:38px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:8px;font-size:13px;color:#443c2f;cursor:pointer}
+.item:hover{background:rgba(0,0,0,.045)}
+.item.on{background:var(--paper);box-shadow:inset 3px 0 0 var(--accent)}
+.item .n{margin-left:auto;font-size:11px;color:var(--muted);background:#e5ddcc;border-radius:9px;padding:1px 7px}
+.item .ic{width:14px;text-align:center;color:#8b8170;font-size:12px}
+.grp{font-size:11px;color:var(--muted);letter-spacing:.08em;padding:14px 10px 6px}
+.main{flex:1;display:flex;flex-direction:column;background:var(--paper);min-width:0;position:relative}
+.thead{display:flex;align-items:center;height:34px;padding:0 14px;gap:10px;border-bottom:1px solid var(--border);
+      font-size:11.5px;color:var(--muted);background:#faf6ec}
+.rows{flex:1;overflow:auto}
+.row{display:flex;align-items:center;gap:10px;height:44px;padding:0 14px;border-bottom:1px solid #f0eada;font-size:12.8px;cursor:pointer}
+.row:hover{background:#fbf6ea}
+.row.sel{background:#f6eddd;box-shadow:inset 2px 0 0 var(--accent)}
+.c{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cov{flex:0 0 28px;height:38px;border-radius:4px;background:linear-gradient(150deg,#c9b98f,#8f8259)}
+.c-title{flex:1;min-width:0;font-size:13px}
+.c-auth{flex:0 0 150px;color:#5d5445}
+.c-fmt{flex:0 0 62px}
+.tag{font-size:10px;border:1px solid #cfc4ab;border-radius:4px;padding:1px 5px;color:#6b6150;background:#f7f1e3}
+.c-vol{flex:0 0 46px;color:var(--muted);font-size:11.5px}
+.c-st{flex:0 0 92px;font-size:11.5px;display:flex;align-items:center;gap:5px}
+.dot{width:6px;height:6px;border-radius:50%}
+.c-size{flex:0 0 70px;text-align:right;color:var(--muted);font-size:11.5px}
+.c-date{flex:0 0 86px;color:var(--muted);font-size:11.5px}
+.detail{width:320px;background:var(--chrome);border-left:1px solid var(--border);overflow:auto}
+.cover{width:200px;height:280px;margin:16px auto 12px;border-radius:6px;background:linear-gradient(150deg,#cbb98c,#7f7248);
+       box-shadow:0 8px 20px rgba(70,56,32,.22);display:grid;place-items:center;color:#fff8e6;font-size:11px;letter-spacing:.2em}
+.dt{text-align:center;font-size:16px;font-weight:600}
+.ds{text-align:center;font-size:11.5px;color:var(--muted);margin:4px 0 12px}
+.sec{margin:0 14px 12px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.sec h4{margin:0 0 8px;font-size:11px;color:var(--muted);letter-spacing:.1em}
+.kv{display:flex;gap:8px;font-size:11.8px;line-height:1.95}
+.kv .k{flex:0 0 62px;color:var(--muted)}
+.kv .v{flex:1;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.src{font-size:9.5px;color:#a2947a;border:1px solid #ddd2bd;border-radius:3px;padding:0 3px;margin-left:3px}
+.conf{display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px}
+.meter{flex:1;height:6px;background:#e8e0cd;border-radius:3px;overflow:hidden}
+.meter i{display:block;height:100%;width:92%;background:linear-gradient(90deg,#c99b52,#a8783a)}
+.path{font-size:11px;color:#5d5445;background:#f6f0e2;border:1px solid #e3dac6;border-radius:6px;padding:6px 8px;margin-top:6px;line-height:1.5;word-break:break-all}
+.path b{display:block;font-weight:500;font-size:10px;color:#8b8170;letter-spacing:.06em;margin-bottom:3px}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 14px 16px}
+.floatbar{position:absolute;left:50%;transform:translateX(-50%);bottom:16px;height:46px;background:#2f2a22;color:#f3ecdc;
+          border-radius:10px;display:flex;align-items:center;padding:0 8px;box-shadow:0 12px 28px rgba(40,30,14,.35)}
+.floatbar .lbl{font-size:12px;padding:0 10px 0 6px;color:#cdc2a8}
+.floatbar button{background:transparent;border:0;color:#f3ecdc;font:inherit;font-size:12px;padding:7px 11px;border-radius:7px;cursor:pointer}
+.floatbar button:hover{background:rgba(255,255,255,.12)}
+.status{height:28px;display:flex;align-items:center;gap:16px;padding:0 14px;background:var(--chrome);
+        border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+.menu{position:absolute;top:44px;right:56px;width:232px;background:var(--panel);border:1px solid var(--border);border-radius:10px;
+      box-shadow:0 10px 26px rgba(80,66,40,.16);padding:6px;font-size:12.5px;z-index:9}
+.mi{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;cursor:pointer;color:#463e30}
+.mi:hover{background:#f5eee0}
+.mi .s{margin-left:auto;font-size:10.5px;color:var(--muted)}
+.sep{height:1px;background:var(--border);margin:5px 4px}
+.cards{flex:1;overflow:auto;padding:18px;display:grid;grid-template-columns:repeat(6,1fr);gap:18px;align-content:start}
+.card{cursor:pointer}
+.card .bk{height:196px;border-radius:6px;background:linear-gradient(150deg,#cbb98c,#7f7248);box-shadow:0 6px 14px rgba(70,56,32,.2);position:relative;transition:.16s}
+.card:hover .bk{transform:translateY(-3px)}
+.card .bk .badge{position:absolute;right:6px;bottom:6px;background:rgba(255,252,244,.9);border-radius:4px;font-size:9px;padding:1px 4px;color:#6b6150}
+.card .t{margin-top:8px;font-size:12.5px;height:34px;overflow:hidden;line-height:1.35}
+.card .a{font-size:11px;color:var(--muted);margin-top:3px}
+.reader{height:880px;background:#eae6de;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;position:relative;
+        box-shadow:0 16px 44px rgba(60,48,30,.28)}
+.rtop{height:44px;display:flex;align-items:center;gap:10px;padding:0 12px;background:#eae6de;border-bottom:1px solid #e2dac8;color:#4a4234;font-size:12.5px}
+.rtop .bk{font-size:13px;font-weight:600;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.paper{flex:1;display:flex;justify-content:center;padding:22px 26px;overflow:hidden}
+.sheet{width:920px;background:#fbf8f0;border-radius:4px;box-shadow:0 8px 26px rgba(70,56,32,.16);padding:48px 62px;overflow:hidden}
+.sheet h2{font-size:19px;font-weight:600;text-align:center;margin:0 0 28px;letter-spacing:.06em}
+.sheet p{font-size:19px;line-height:1.9;margin:0 0 15px;text-indent:2em;color:#332d24}
+.rbot{height:40px;display:flex;align-items:center;gap:14px;padding:0 14px;background:#eae6de;border-top:1px solid #e2dac8;font-size:11.5px;color:#7c7260}
+.prog{flex:1;height:18px;display:flex;align-items:center;gap:2px}
+.prog i{flex:1;height:3px;background:#d9d0bc;border-radius:2px}
+.prog i.gone{background:#a8783a}
+.pop{position:absolute;top:50px;right:14px;width:360px;background:var(--panel);border:1px solid var(--border);border-radius:14px;
+     box-shadow:0 16px 40px rgba(70,56,32,.24);overflow:hidden;z-index:12}
+.pop .hd{display:flex;align-items:center;gap:4px;padding:8px 10px;border-bottom:1px solid var(--border)}
+.ptab{background:transparent;border:0;font:inherit;font-size:12.5px;color:var(--muted);padding:6px 9px;border-bottom:2px solid transparent;cursor:pointer}
+.ptab.on{color:var(--ink);font-weight:600;border-bottom-color:var(--accent)}
+.pop .bd{padding:12px}
+.pcard{background:#fffefa;border:1px solid var(--border);border-radius:11px;padding:10px 12px;margin-bottom:10px}
+.pcard h5{margin:0 0 6px;font-size:11px;color:var(--muted);letter-spacing:.08em}
+.prow{display:flex;align-items:center;justify-content:space-between;height:38px;border-bottom:1px solid #f2ecdc;font-size:12.5px}
+.prow:last-child{border-bottom:0}
+.stepper{display:flex;align-items:center;gap:10px}
+.stepper b{min-width:44px;text-align:center;font-size:13px}
+.stepper i{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:#fffdf7;display:grid;place-items:center;
+           font-style:normal;color:#6b6150;cursor:pointer}
+.pseg{display:flex;gap:4px;background:#f4eedf;border-radius:8px;padding:3px}
+.pseg span{padding:4px 12px;border-radius:6px;font-size:12px;color:#6b6150;cursor:pointer}
+.pseg span.on{background:#fff;color:var(--ink);font-weight:600}
+.box{width:178px;height:30px;border:1px solid var(--border);border-radius:7px;background:#fffdf7;display:flex;align-items:center;
+     justify-content:space-between;padding:0 10px;font-size:12.5px}
+.swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sw{height:44px;border-radius:9px;border:2px solid transparent;cursor:pointer}
+.sw.on{border-color:var(--accent)}
+.note{font-size:11px;color:var(--muted);line-height:1.6}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="tabs">
+    <button class="on" onclick="show(0,this)">① 书库 · 列表 + 详情 + 批量条</button>
+    <button onclick="show(1,this)">② 书库 · 卡片视图 + 添加菜单</button>
+    <button onclick="show(2,this)">③ 阅读器 · 设置浮层（主题化）</button>
+  </div>
+
+  <!-- ===== ① 列表 ===== -->
+  <div class="screen on">
+    <div class="win">
+      <div class="top">
+        <div class="ib">☰</div><div class="brand">书格</div><div class="lib">本地书库 · 1872 本</div>
+        <div class="search">⌕ 搜索 书名 / 作者 / ISBN <span class="grow"></span><span class="kbd">Ctrl K</span></div>
+        <div class="grow"></div>
+        <div class="btn primary">＋ 添加书籍</div>
+        <div class="btn">⋯</div>
+        <div class="ib">☾</div><div class="ib">⚙</div>
+      </div>
+      <div class="bar">
+        <div class="cnt on"><b>1,872</b>全部书籍</div>
+        <div class="cnt"><b>1,748</b>已识别</div>
+        <div class="cnt"><b>124</b>待整理</div>
+        <div class="cnt"><b>0</b>识别失败</div>
+        <div class="grow"></div>
+        <div class="seg"><i class="on">☰</i><i>▦</i><i>▤</i><i>◫</i></div>
+        <select class="sort"><option>排序：书名</option></select>
+      </div>
+      <div class="body">
+        <div class="nav">
+          <div class="grp">书库</div>
+          <div class="item on"><span class="ic">▤</span>全部书籍<span class="n">1872</span></div>
+          <div class="item"><span class="ic">◔</span>待整理<span class="n">124</span></div>
+          <div class="item"><span class="ic">✓</span>已归档</div>
+          <div class="item"><span class="ic">!</span>识别失败<span class="n">0</span></div>
+          <div class="grp">分类</div>
+          <div class="item"><span class="ic">☺</span>作者</div>
+          <div class="item"><span class="ic">◫</span>系列</div>
+          <div class="item"><span class="ic">▣</span>文件夹</div>
+          <div class="item"><span class="ic">◇</span>标签</div>
+          <div class="grp">工具</div>
+          <div class="item"><span class="ic">⇄</span>整理（预览 → 执行）</div>
+          <div class="item"><span class="ic">⌫</span>清理空目录</div>
+          <div class="item"><span class="ic">♻</span>回收站</div>
+          <div class="item"><span class="ic">⤵</span>格式转换</div>
+        </div>
+        <div class="main">
+          <div class="thead">
+            <div class="col-chk" style="flex:0 0 16px">☐</div><div style="flex:0 0 28px"></div>
+            <div class="c-title">书名</div><div class="c-auth">作者</div><div class="c-fmt">格式</div>
+            <div class="c-vol">卷</div><div class="c-st">状态</div><div class="c-size">大小</div><div class="c-date">添加时间</div>
+          </div>
+          <div class="rows">
+            <div class="row sel"><span class="col-chk">☑</span><div class="cov"></div><div class="c-title c">风起陇西</div><div class="c-auth c">马伯庸</div><div class="c-fmt"><span class="tag">EPUB</span></div><div class="c-vol"></div><div class="c-st"><span class="dot" style="background:#5c9a72"></span>已识别</div><div class="c-size">480K</div><div class="c-date">11-26</div></div>
+            <div class="row"><span class="col-chk">☐</span><div class="cov"></div><div class="c-title c">对冲基金到底是什么</div><div class="c-auth c">黄徽</div><div class="c-fmt"><span class="tag">EPUB</span></div><div class="c-vol"></div><div class="c-st"><span class="dot" style="background:#c08a3e"></span>待确认</div><div class="c-size">2.1M</div><div class="c-date">11-26</div></div>
+            <div class="row"><span class="col-chk">☐</span><div class="cov"></div><div class="c-title c">心理学大纲</div><div class="c-auth c">1832-1920</div><div class="c-fmt"><span class="tag">EPUB</span></div><div class="c-vol"></div><div class="c-st"><span class="dot" style="background:#5c9a72"></span>已识别</div><div class="c-size">1.4M</div><div class="c-date">11-26</div></div>
+            <div class="row"><span class="col-chk">☐</span><div class="cov"></div><div class="c-title c">二〇一八 第二十三卷</div><div class="c-auth c">钱锤</div><div class="c-fmt"><span class="tag">EPUB</span></div><div class="c-vol">3</div><div class="c-st"><span class="dot" style="background:#5c9a72"></span>已识别</div><div class="c-size">3.8M</div><div class="c-date">11-25</div></div>
+            <div class="row"><span class="col-chk">☐</span><div class="cov"></div><div class="c-title c">THE PRINCIPLES OF ECONOMICS</div><div class="c-auth c">阿尔弗雷德·马歇尔</div><div class="c-fmt"><span class="tag">PDF</span></div><div class="c-vol"></div><div class="c-st"><span class="dot" style="background:#b4544a"></span>文件异常</div><div class="c-size">12M</div><div class="c-date">11-25</div></div>
+            <div class="row"><span class="col-chk">☐</span><div class="cov"></div><div class="c-title c">礼仪全说</div><div class="c-auth c">金正昆</div><div class="c-fmt"><span class="tag">EPUB</span></div><div class="c-vol"></div><div class="c-st"><span class="dot" style="background:#c08a3e"></span>待确认</div><div class="c-size">4.6M</div><div class="c-date">11-24</div></div>
+            <div class="row"><span class="col-chk">☐</span><div class="cov"></div><div class="c-title c">国学典藏 全一册</div><div class="c-auth c">曹雪芹</div><div class="c-fmt"><span class="tag">MOBI</span></div><div class="c-vol"></div><div class="c-st"><span class="dot" style="background:#8a8272"></span>DRM</div><div class="c-size">6.2M</div><div class="c-date">11-24</div></div>
+          </div>
+          <div class="floatbar">
+            <span class="lbl">已选 1 本</span>
+            <button>重新识别</button><button>移动到…</button><button>复制到…</button><button>导出为…</button><button>删除</button><button>取消选择</button>
+          </div>
+        </div>
+        <div class="detail">
+          <div class="cover">封面 200×280</div>
+          <div class="dt">风起陇西</div>
+          <div class="ds">马伯庸 · 2005 · 无系列</div>
+          <div class="sec">
+            <h4>识别</h4>
+            <div class="conf"><span class="tag">内嵌</span><span>置信度 92%</span><span class="meter"><i></i></span></div>
+            <div class="note">内嵌 OPF 完整，未联网补全。可点「豆瓣匹配」补封面与简介。</div>
+            <div class="acts" style="margin:10px 0 0">
+              <div class="btn">重新识别</div><div class="btn">豆瓣匹配</div>
+              <div class="btn">恢复内嵌</div><div class="btn">编辑元数据</div>
+            </div>
+          </div>
+          <div class="sec">
+            <h4>元数据</h4>
+            <div class="kv"><span class="k">出版社</span><span class="v">人民文学出版社<span class="src">网</span></span></div>
+            <div class="kv"><span class="k">出版日期</span><span class="v">2005-04<span class="src">内</span></span></div>
+            <div class="kv"><span class="k">语言</span><span class="v">简体中文<span class="src">内</span></span></div>
+            <div class="kv"><span class="k">页数</span><span class="v">328</span></div>
+            <div class="kv"><span class="k">ISBN</span><span class="v">9787020002207<span class="src">内</span></span></div>
+            <div class="kv"><span class="k">文件大小</span><span class="v">480.4 KB</span></div>
+            <div class="kv"><span class="k">格式</span><span class="v">EPUB · 无 DRM</span></div>
+          </div>
+          <div class="sec">
+            <h4>路径</h4>
+            <div class="path"><b>源文件</b>F:\E-book\马伯庸\风起陇西.epub</div>
+            <div class="path"><b>库文件</b>Library\马伯庸 [中国]\风起陇西 - 马伯庸.epub</div>
+            <div class="acts" style="margin:10px 0 0"><div class="btn">打开源文件夹</div><div class="btn">定位库文件</div></div>
+          </div>
+          <div class="acts"><div class="btn primary">在软件内阅读</div><div class="btn">系统程序打开</div><div class="btn">创建副本</div><div class="btn">从书库移除</div></div>
+        </div>
+      </div>
+      <div class="status"><span>就绪</span><span>库 1,872 本</span><span>占用 41.2 GB</span><span>当前筛选：全部书籍</span></div>
+    </div>
+  </div>
+
+  <!-- ===== ② 卡片 ===== -->
+  <div class="screen">
+    <div class="win">
+      <div class="top">
+        <div class="ib">☰</div><div class="brand">书格</div><div class="lib">本地书库 · 1872 本</div>
+        <div class="search">⌕ 搜索 书名 / 作者 / ISBN <span class="grow"></span><span class="kbd">Ctrl K</span></div>
+        <div class="grow"></div>
+        <div class="btn primary">＋ 添加书籍</div><div class="btn">⋯</div><div class="ib">☾</div><div class="ib">⚙</div>
+        <div class="menu">
+          <div class="mi">▣ 扫描目录<span class="s">Ctrl O</span></div>
+          <div class="mi">◫ 选择文件</div>
+          <div class="mi">⇩ 导入 calibre 库</div>
+          <div class="sep"></div>
+          <div class="mi">⤵ 从文件重建库</div>
+          <div class="mi">⌫ 清理空目录</div>
+          <div class="mi">◎ 库健康检查</div>
+        </div>
+      </div>
+      <div class="bar">
+        <div class="cnt"><b>1,872</b>全部书籍</div><div class="cnt on"><b>1,748</b>已识别</div>
+        <div class="cnt"><b>124</b>待整理</div><div class="cnt"><b>0</b>识别失败</div>
+        <div class="grow"></div>
+        <div class="seg"><i>☰</i><i class="on">▦</i><i>▤</i><i>◫</i></div>
+        <select class="sort"><option>排序：书名</option></select>
+      </div>
+      <div class="body">
+        <div class="nav">
+          <div class="grp">书库</div>
+          <div class="item on"><span class="ic">▤</span>全部书籍<span class="n">1872</span></div>
+          <div class="item"><span class="ic">◔</span>待整理<span class="n">124</span></div>
+          <div class="item"><span class="ic">✓</span>已归档</div>
+          <div class="item"><span class="ic">!</span>识别失败</div>
+          <div class="grp">分类</div>
+          <div class="item"><span class="ic">☺</span>作者</div><div class="item"><span class="ic">◫</span>系列</div>
+          <div class="item"><span class="ic">▣</span>文件夹</div><div class="item"><span class="ic">◇</span>标签</div>
+          <div class="grp">工具</div>
+          <div class="item"><span class="ic">⇄</span>整理（预览 → 执行）</div>
+          <div class="item"><span class="ic">⌫</span>清理空目录</div>
+          <div class="item"><span class="ic">♻</span>回收站</div><div class="item"><span class="ic">⤵</span>格式转换</div>
+        </div>
+        <div class="main">
+          <div class="cards">
+            <div class="card"><div class="bk"><span class="badge">EPUB</span></div><div class="t">风起陇西</div><div class="a">马伯庸</div></div>
+            <div class="card"><div class="bk"><span class="badge">EPUB</span></div><div class="t">对冲基金到底是什么</div><div class="a">黄徽</div></div>
+            <div class="card"><div class="bk"><span class="badge">EPUB</span></div><div class="t">心理学大纲</div><div class="a">1832-1920</div></div>
+            <div class="card"><div class="bk"><span class="badge">EPUB</span></div><div class="t">二〇一八 第二十三卷</div><div class="a">钱锤</div></div>
+            <div class="card"><div class="bk" style="background:linear-gradient(150deg,#c3a9a2,#7d5f58)"><span class="badge">PDF</span></div><div class="t">THE PRINCIPLES OF ECONOMICS</div><div class="a">马歇尔</div></div>
+            <div class="card"><div class="bk"><span class="badge">EPUB</span></div><div class="t">礼仪全说</div><div class="a">金正昆</div></div>
+            <div class="card"><div class="bk" style="background:linear-gradient(150deg,#a9b8a2,#5f7258)"><span class="badge">MOBI</span></div><div class="t">国学典藏 全一册</div><div class="a">曹雪芹</div></div>
+            <div class="card"><div class="bk"><span class="badge">EPUB</span></div><div class="t">红字</div><div class="a">霍桑</div></div>
+            <div class="card"><div class="bk"><span class="badge">EPUB</span></div><div class="t">非理性亢奋</div><div class="a">陈志武</div></div>
+            <div class="card"><div class="bk"><span class="badge">AZW3</span></div><div class="t">新郎小夫妻幸福理财计划</div><div class="a">青青陌上</div></div>
+            <div class="card"><div class="bk"><span class="badge">EPUB</span></div><div class="t">文化血脉</div><div class="a">黄卓越</div></div>
+            <div class="card"><div class="bk"><span class="badge">EPUB</span></div><div class="t">为什么中国人勤劳而不富有</div><div class="a">陈志武</div></div>
+          </div>
+          <div class="floatbar" style="bottom:14px">
+            <span class="lbl">已选 3 本</span>
+            <button>重新识别</button><button>移动到…</button><button>导出为…</button><button>删除</button>
+          </div>
+        </div>
+        <div class="detail">
+          <div class="cover">封面 200×280</div>
+          <div class="dt">风起陇西</div><div class="ds">马伯庸 · 2005</div>
+          <div class="sec"><h4>识别</h4>
+            <div class="conf"><span class="tag">内嵌</span><span>92%</span><span class="meter"><i></i></span></div>
+            <div class="note">视图切换不影响详情与选中状态。</div>
+          </div>
+          <div class="sec"><h4>路径</h4>
+            <div class="path"><b>源文件</b>F:\E-book\马伯庸\风起陇西.epub</div>
+            <div class="path"><b>库文件</b>Library\马伯庸 [中国]\风起陇西 - 马伯庸.epub</div>
+          </div>
+        </div>
+      </div>
+      <div class="status"><span>就绪</span><span>库 1,872 本</span><span>卡片视图 · 缩略缓存已就绪</span></div>
+    </div>
+  </div>
+
+  <!-- ===== ③ 阅读器 ===== -->
+  <div class="screen">
+    <div class="reader">
+      <div class="rtop">
+        <div class="ib">☰</div><div class="bk">风起陇西</div>
+        <div class="grow"></div>
+        <div class="ib">⌕</div><div class="ib">▮</div><div class="ib" style="background:#f7f1e3">Aa</div><div class="ib">▤</div><div class="ib">⏷</div><div class="ib">⋯</div>
+      </div>
+      <div class="paper">
+        <div class="sheet">
+          <h2>第三章</h2>
+          <p>人间常有些散仙野妖，受了冤屈无处申诉，要来天庭击鼓鸣冤。玉帝有好生之德，只是这冒失之徒若无凭无据，便先受一顿天雷，再打入轮回。</p>
+          <p>李长庚原本还想辩驳一句，被这雷霆震得缩了缩脖子，只得把话咽了回去。他抬头看看左右，众仙个个垂目不语，仿佛方才什么都没听见。</p>
+          <p>太白金星点点头，转身出殿，脚下云路走着走着，忽然听见身后有人喊他名字。他回头一看，原来是个小猴儿，正抱着一卷竹简追上来。</p>
+          <p>“小猴子总算等到一位管事的人，哪敢怠慢，快嘴快舌把自己的事情一发说了。”</p>
+        </div>
+      </div>
+      <div class="rbot">
+        <div class="ib">‹</div><div class="ib">›</div>
+        <div class="prog"><i class="gone"></i><i class="gone"></i><i class="gone"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div>第一章 · 本章剩余 18 分钟 / 8 页</div><div>22:53</div><div>16 / 318</div>
+      </div>
+      <div class="pop">
+        <div class="hd">
+          <button class="ptab on">Aa 字体</button><button class="ptab">◫ 版面</button><button class="ptab">◐ 主题</button>
+          <div class="grow"></div><div class="ib">×</div>
+        </div>
+        <div class="bd">
+          <div class="pcard">
+            <h5>字体</h5>
+            <div class="prow"><span>正文</span><span class="box">霞鹜文楷（内置）▾</span></div>
+            <div class="prow"><span>字号</span><span class="stepper"><i>−</i><b>19</b><i>＋</i></span></div>
+            <div class="prow"><span>行距</span><span class="stepper"><i>−</i><b>1.90</b><i>＋</i></span></div>
+            <div class="prow"><span>字重</span><span class="box" style="width:120px">400 ▾</span></div>
+          </div>
+          <div class="pcard">
+            <h5>版面</h5>
+            <div class="prow"><span>分栏</span><span class="pseg"><span class="on">单栏</span><span>双栏</span></span></div>
+            <div class="prow"><span>页宽</span><span class="stepper"><i>−</i><b>920</b><i>＋</i></span></div>
+            <div class="prow"><span>边距</span><span class="pseg"><span>紧凑</span><span class="on">适中</span><span>舒展</span></span></div>
+          </div>
+          <div class="pcard">
+            <h5>主题</h5>
+            <div class="swatches">
+              <div class="sw on" style="background:#fbf8f0"></div><div class="sw" style="background:#f4ead6"></div>
+              <div class="sw" style="background:#e8e6e1"></div><div class="sw" style="background:#e6efe2"></div>
+              <div class="sw" style="background:#f7e7e6"></div><div class="sw" style="background:#e6eff6"></div>
+              <div class="sw" style="background:#fbeedd"></div><div class="sw" style="background:#23211d"></div>
+            </div>
+            <div class="note" style="margin-top:8px">当前：米黄。浮层、箭头、底栏与纸面同色阶，无白色块。</div>
+          </div>
+          <div class="pcard">
+            <h5>翻页</h5>
+            <div class="prow"><span>动效</span><span class="pseg"><span class="on">直接</span><span>推进</span><span>卷角</span></span></div>
+            <div class="note">可选：真实翻书（抓帧 + WebGL），P3 再上。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+function show(i, el){
+  document.querySelectorAll('.screen').forEach((s,k)=>s.classList.toggle('on',k===i));
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
+</script>
+</body>
+</html>

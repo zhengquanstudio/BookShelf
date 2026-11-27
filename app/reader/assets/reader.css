@@ -1,0 +1,330 @@
+/* 主题变量由 reader.js 的 applyPalette() 从 Python 色卡写入，CSS 不再维护第二套色值。 */
+:root {
+  --canvas: #e9e6df;
+  --page-bg: #fbfaf7;
+  --page-text: #1f2328;
+  --muted: #8b9099;
+  --chrome: #f3f1ec;
+  --border: #ddd8cd;
+  --accent: #3f6fa8;
+  /* 正文字体：西文走拉丁字体、中文回落 CJK（CJK 在前会让英文套用中文字形的西文部分）。 */
+  --reader-font-cjk: "LXGW WenKai";
+  --reader-font-latin: "Literata";
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--canvas);
+  overflow: hidden;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  color: var(--page-text);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* 切主题：旧色纸面盖住 Web 视图 200ms 淡出，遮住 iframe 正文的瞬切。 */
+#themeFade {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+#themeFade.fading {
+  opacity: 0;
+}
+
+.theme-fade-sheet {
+  position: absolute;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+#canvas {
+  height: 100%;
+  box-sizing: border-box;
+  padding: 12px 16px 16px;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+#paper {
+  width: auto;
+  flex: 1 1 auto;
+  max-width: min(100%, var(--page-max, 920px));
+  height: calc(100vh - 28px);
+  min-height: 0;
+  background: var(--page-bg);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
+  position: relative;
+  transition: background-color 0.2s ease;
+}
+
+#viewer {
+  height: calc(100vh - 28px);
+  box-sizing: border-box;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+#viewer iframe {
+  border: 0;
+  background: transparent;
+}
+
+/* 背景纹理：纸面与 PDF 页共享同一套纹理类，EPUB 正文由 foliate 内部另注入。 */
+body.texture-paper #paper,
+body.texture-paper .pdf-page {
+  background-image:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--page-text) 3%, transparent) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--page-text) 2%, transparent) 0 1px, transparent 1px 4px);
+}
+
+body.texture-noise #paper,
+body.texture-noise .pdf-page {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--page-text) 5%, transparent) 0.5px,
+    transparent 0.7px
+  );
+  background-size: 3px 3px;
+}
+
+/* EPUB 使用 foliate-js（Readest 阅读内核）渲染，PDF 仍走 pdf.js。 */
+body.epub-mode #viewer {
+  display: none;
+}
+
+foliate-view {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--page-bg);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+/* 两侧箭头：默认透明，鼠标进入正文区淡入，点击分别翻页 / 跳章。 */
+.side-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 3;
+}
+
+.side-nav-left {
+  left: 6px;
+}
+
+.side-nav-right {
+  right: 6px;
+}
+
+#paper:hover .side-nav {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.nav-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  background: color-mix(in srgb, var(--page-bg) 62%, transparent);
+  color: var(--page-text);
+  backdrop-filter: blur(6px);
+  font-size: 15px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.nav-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+/* 直接翻页档：临时关掉所有过渡，避免残留动画。 */
+body.no-turn-anim,
+body.no-turn-anim * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* 整页翻档：View Transitions 让旧纸面绕左/右边缘翻走，下一页已经就位。 */
+#paper {
+  view-transition-name: reader-sheet;
+}
+
+::view-transition-old(reader-sheet) {
+  transform-origin: var(--flip-origin, left center);
+  animation: sheet-turn-out 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+::view-transition-new(reader-sheet) {
+  transform-origin: var(--flip-origin, left center);
+  animation: sheet-turn-in 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes sheet-turn-out {
+  to {
+    transform: perspective(1400px) rotateY(var(--flip-angle, -102deg));
+    opacity: 0.35;
+  }
+}
+
+@keyframes sheet-turn-in {
+  from {
+    transform: perspective(1400px) rotateY(calc(var(--flip-angle, -102deg) * -1));
+    opacity: 0.45;
+  }
+}
+
+body.pdf-mode #paper {
+  background: transparent;
+  box-shadow: none;
+  width: min(100%, var(--page-max, 920px));
+  height: auto;
+  min-height: 0;
+}
+
+body.pdf-mode #viewer {
+  height: auto;
+  overflow: visible;
+}
+
+#pdfPages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding-bottom: 30px;
+}
+
+.pdf-page {
+  position: relative;
+  background: var(--page-bg);
+  border-radius: 3px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.pdf-page canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  line-height: 1;
+  opacity: 1;
+}
+
+.textLayer span {
+  position: absolute;
+  white-space: pre;
+  transform-origin: 0 0;
+  color: transparent;
+  cursor: text;
+}
+
+.textLayer ::selection {
+  background: rgba(79, 140, 247, 0.35);
+}
+
+#selectionBar {
+  position: fixed;
+  left: 50%;
+  bottom: 64px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--chrome);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  z-index: 40;
+}
+
+#selectionBar.hidden {
+  display: none;
+}
+
+#selectionBar .hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+#selectionBar .divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+
+#selectionBar .swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  padding: 0;
+}
+
+#selectionBar button {
+  border: 0;
+  background: transparent;
+  color: var(--page-text);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+#selectionBar button:hover {
+  background: color-mix(in srgb, var(--page-text) 10%, transparent);
+}
+
+#loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 13px;
+  background: color-mix(in srgb, var(--canvas) 88%, transparent);
+  z-index: 30;
+}
+
+#loading.hidden {
+  display: none;
+}
+
+.epub-highlight {
+  fill: #ffe08a;
+  fill-opacity: 0.42;
+}

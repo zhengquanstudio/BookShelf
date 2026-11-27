@@ -1,0 +1,32 @@
+# -*- coding: utf-8 -*-
+# 此文件由 tools/gen_version.py 生成，请勿手工修改。
+VSVersionInfo(
+    ffi=FixedFileInfo(
+        filevers=(1, 1, 4, 0),
+        prodvers=(1, 1, 4, 0),
+        mask=0x3F,
+        flags=0x0,
+        OS=0x40004,
+        fileType=0x1,
+        subtype=0x0,
+        date=(0, 0),
+    ),
+    kids=[
+        StringFileInfo([
+            StringTable(
+                "080404B0",
+                [
+                    StringStruct("CompanyName", "BookShelf contributors"),
+                    StringStruct("FileDescription", "书库助手 BookShelf"),
+                    StringStruct("FileVersion", "1.1.4.0"),
+                    StringStruct("InternalName", "BookShelf"),
+                    StringStruct("LegalCopyright", "Copyright (C) 2026 BookShelf contributors"),
+                    StringStruct("OriginalFilename", "BookShelf.exe"),
+                    StringStruct("ProductName", "BookShelf"),
+                    StringStruct("ProductVersion", "1.1.4.0"),
+                ],
+            )
+        ]),
+        VarFileInfo([VarStruct("Translation", [2052, 1200])]),
+    ],
+)

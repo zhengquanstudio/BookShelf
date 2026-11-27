@@ -1,0 +1,14 @@
+BookShelf
+Copyright (C) 2026 BookShelf contributors
+
+BookShelf is free software licensed under GPL-3.0-or-later.
+See LICENSE for the full license text.
+
+EPUB rendering uses foliate-js (MIT License, Copyright (c) 2022 John Factotum),
+vendored from the Readest fork: https://github.com/readest/foliate-js
+The bundled copy is documented in docs/UPSTREAM.md; its license text ships at
+app/reader/assets/vendor/foliate-js/LICENSE.
+
+Calibre and Koodo Reader remain references for behavior and interaction only;
+no source code from those projects is included. Their names and marks belong to
+their respective owners.
