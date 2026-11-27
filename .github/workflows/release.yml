@@ -121,6 +121,8 @@ jobs:
           try { gh release view $tag *> $null; $exists = $true } catch { }
           if ($exists) {
             gh release upload $tag "release/BookShelf-Setup-$ver.exe" "release/checksums.txt" --clobber
+            # 删过 tag 再重推时，老 Release 会变成 draft，这里必须显式发布，否则页面看不到
+            gh release edit $tag --draft=false --latest --title "书格 $ver"
           } else {
             $ghArgs = @($tag, "release/BookShelf-Setup-$ver.exe", "release/checksums.txt",
                         "--title", "书格 $ver", "--verify-tag")
