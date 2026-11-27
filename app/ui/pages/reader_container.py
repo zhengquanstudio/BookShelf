@@ -64,6 +64,7 @@ from PySide6.QtCore import QUrl
 
 from ... import config
 from ...core import isbn as isbn_tools
+from ...core.metadata.opf_write import backup_path, write_embedded_metadata
 from ...db.connection import Database
 from ...db.repositories.book_repo import BookRepository
 from ...db.repositories.reading_repo import ReadingRepository
@@ -619,6 +620,7 @@ class ReaderContainer(QWidget):
             on_back=self._on_back,
             on_note=self._detail_add_note,
             on_bookmark=self._detail_add_bookmark,
+            on_restore=self._restore_embedded_metadata,
         )
         self.detail_panel.save_requested.connect(self._save_book_detail_edit)
         self.search_bar.hide()
@@ -1631,6 +1633,20 @@ class ReaderContainer(QWidget):
             current_page=int(self._location.get("page") or 0),
             total_pages=int(self._location.get("total") or 0),
         )
+        self.detail_panel.set_restore_available(self._can_restore_embedded())
+
+    def _can_restore_embedded(self) -> bool:
+        if not self._book_id:
+            return False
+        row = self.db.query_one(
+            "SELECT file_path, format FROM books WHERE id = ?", (self._book_id,)
+        )
+        if row is None:
+            return False
+        return (
+            str(row["format"] or "").lower() == "epub"
+            and Path(str(row["file_path"] or "")).is_file()
+        )
 
     def _reveal_book_folder(self) -> None:
         folder = Path(self._book_path).parent
@@ -1785,6 +1801,7 @@ class ReaderContainer(QWidget):
                 books.update(self._book_id, series_id=None)
             LibraryService(self.db).set_tags([self._book_id], tags)
             moved, note = self._move_edited_book_to_archive()
+            note += self._write_embedded_after_save(fields, page_count)
         except Exception as exc:
             log.warning("保存元数据失败，开始回滚：%s", exc)
             self._restore_book_snapshot(snapshot, old_tags)
@@ -1827,6 +1844,56 @@ class ReaderContainer(QWidget):
         if result.moved or result.overwritten:
             return True, "已保存并同步到书库，文件已归档"
         return False, "已保存并同步到书库（文件未移动）"
+
+    def _write_embedded_after_save(
+        self, fields: dict[str, str], page_count: int | None
+    ) -> str:
+        """R3c：EPUB 写回 OPF；失败只提示并保留备份，不回滚已保存的元数据。"""
+        row = self.db.query_one(
+            "SELECT file_path, format FROM books WHERE id = ?", (self._book_id,)
+        )
+        if row is None:
+            return ""
+        fmt = str(row["format"] or "").lower()
+        path = Path(str(row["file_path"] or ""))
+        if fmt != "epub":
+            return "（该格式不支持回写内嵌元数据）"
+        if not path.is_file():
+            return "；OPF 未写入：数据文件不存在"
+        try:
+            write_embedded_metadata(
+                path,
+                {
+                    "title": fields["title"],
+                    "author": fields["author"],
+                    "publisher": fields["publisher"],
+                    "publish_date": fields["publish_date"],
+                    "language": fields["language"],
+                    "isbn": fields["isbn"],
+                },
+                page_count=page_count,
+            )
+        except Exception as exc:
+            log.warning("OPF 回写失败：%s", exc)
+            kept = "，已保留备份" if backup_path(path).exists() else ""
+            return f"；OPF 未写入{kept}（{exc}）"
+        return "；已写入 EPUB 内嵌元数据"
+
+    def _restore_embedded_metadata(self) -> None:
+        """R3c：用文件内嵌元数据覆盖书库记录（仅 EPUB 可用）。"""
+        if not self._book_id:
+            return
+        try:
+            MetadataService(self.db).reset_to_embedded(self._book_id)
+        except Exception as exc:
+            log.warning("恢复内嵌元数据失败：%s", exc)
+            self.detail_panel.show_status(f"恢复失败：{exc}", error=True)
+            return
+        if not self._reload_current_book():
+            self.detail_panel.show_status("已恢复，但阅读器刷新失败", error=True)
+            return
+        self.detail_panel.show_status("已恢复为文件内嵌元数据")
+        self.book_changed.emit(self._book_id)
 
     def _restore_book_snapshot(
         self, snapshot: dict[str, Any], old_tags: list[str]

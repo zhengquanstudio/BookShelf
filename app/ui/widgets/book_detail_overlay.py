@@ -65,6 +65,7 @@ class BookDetailOverlay(QFrame):
         on_back: Callable[[], None] | None = None,
         on_note: Callable[[], None] | None = None,
         on_bookmark: Callable[[], None] | None = None,
+        on_restore: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(parent)
         self.setObjectName("ReaderDetailOverlay")
@@ -77,7 +78,7 @@ class BookDetailOverlay(QFrame):
         root.setSpacing(0)
         root.addLayout(self._build_header())
         root.addWidget(self._build_body(), 1)
-        root.addWidget(self._build_actions(on_back, on_note, on_bookmark))
+        root.addWidget(self._build_actions(on_back, on_note, on_bookmark, on_restore))
         self.reveal_button.clicked.connect(on_reveal)
         self.rename_button.clicked.connect(on_rename)
         self.close_button.clicked.connect(on_close)
@@ -274,6 +275,7 @@ class BookDetailOverlay(QFrame):
         on_back: Callable[[], None] | None,
         on_note: Callable[[], None] | None,
         on_bookmark: Callable[[], None] | None,
+        on_restore: Callable[[], None] | None,
     ) -> QFrame:
         panel = QFrame()
         panel.setObjectName("ReaderDetailActions")
@@ -339,7 +341,9 @@ class BookDetailOverlay(QFrame):
         self.research_button = self._action("⇩ 重新识别", enabled=False)
         self.research_button.setToolTip("将在后续版本开放")
         self.restore_button = self._action("⟲ 恢复内嵌元数据", enabled=False)
-        self.restore_button.setToolTip("R3c 内嵌元数据回写尚未开放")
+        self.restore_button.setToolTip("当前格式不支持回写内嵌元数据")
+        if on_restore is not None:
+            self.restore_button.clicked.connect(on_restore)
         for index, button in enumerate(
             (self.edit_button, self.research_button, self.restore_button)
         ):
@@ -457,6 +461,15 @@ class BookDetailOverlay(QFrame):
     def cancel_edit(self) -> None:
         self.leave_edit()
         self.edit_cancelled.emit()
+
+    def set_restore_available(self, available: bool) -> None:
+        """EPUB 且文件存在时允许“恢复内嵌元数据”；其他格式置灰。"""
+        self.restore_button.setEnabled(available)
+        self.restore_button.setToolTip(
+            "用文件内嵌元数据覆盖书库记录"
+            if available
+            else "当前格式不支持回写内嵌元数据"
+        )
 
     def leave_edit(self) -> None:
         """退出编辑态并恢复只读视图；保存成功后由宿主调用。"""
