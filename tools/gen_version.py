@@ -47,12 +47,12 @@ VSVersionInfo(
                 "080404B0",
                 [
                     StringStruct("CompanyName", "BookShelf contributors"),
-                    StringStruct("FileDescription", "书库助手 BookShelf"),
+                    StringStruct("FileDescription", "书格 BookShelf"),
                     StringStruct("FileVersion", "{version_quad}"),
                     StringStruct("InternalName", "BookShelf"),
                     StringStruct("LegalCopyright", "Copyright (C) 2026 BookShelf contributors"),
                     StringStruct("OriginalFilename", "BookShelf.exe"),
-                    StringStruct("ProductName", "BookShelf"),
+                    StringStruct("ProductName", "书格 BookShelf"),
                     StringStruct("ProductVersion", "{version_quad}"),
                 ],
             )
@@ -85,3 +85,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
