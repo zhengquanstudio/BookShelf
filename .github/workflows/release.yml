@@ -4,14 +4,21 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "版本号（如 1.1.4），仅手工触发时需要，且必须已有同名 tag"
+        required: true
 
 permissions:
   contents: write
 
+env:
+  FORCE_COLOR: "0"
+
 jobs:
   build-installer:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -20,32 +27,75 @@ jobs:
           python-version: "3.11"
           cache: pip
 
+      - name: 统一换行与编码（避免 CRLF/LF 差异干扰构建脚本）
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          $env:PYTHONUTF8 = "1"
+
       - name: 建虚拟环境 + 安装依赖
         shell: pwsh
         run: |
           python -m venv .venv
-          .\.venv\Scripts\python.exe -m pip install --upgrade pip
+          .\.venv\Scripts\python.exe -m pip install --upgrade pip wheel setuptools
           .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 
       - name: 先跑一遍测试（红了不发版）
         shell: pwsh
         run: .\.venv\Scripts\python.exe -m pytest tests -q
 
-      - name: 安装 Inno Setup
+      - name: 安装 Inno Setup + UPX
         shell: pwsh
         run: |
-          choco install innosetup --no-progress -y
-          if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { throw "ISCC 未安装成功" }
+          choco install innosetup upx --no-progress -y
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 6\ISCC.exe" }
+          if (-not (Test-Path $iscc)) { throw "ISCC 未安装成功" }
+          "ISCC=$iscc"
+          # 官方中文语言包 Inno Setup 不自带，补一份，保证安装包是简体中文界面
+          $langDir = Join-Path (Split-Path $iscc -Parent) "Languages"
+          New-Item -ItemType Directory -Force -Path $langDir | Out-Null
+          $url = "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/ChineseSimplified.isl"
+          try {
+            Invoke-WebRequest -Uri $url -OutFile (Join-Path $langDir "ChineseSimplified.isl") -TimeoutSec 30
+            "中文语言包已下载"
+          } catch {
+            "中文语言包下载失败，安装包将回退英文（不阻断构建）：$($_.Exception.Message)"
+          }
 
       - name: 打包 exe + 安装包
+        id: build
         shell: pwsh
-        run: .\tools\build.ps1
+        continue-on-error: true
+        run: |
+          try {
+            .\tools\build.ps1 *>&1 | Tee-Object -FilePath build.log
+          } catch {
+            $_ | Out-String | Tee-Object -Append -FilePath build.log
+            exit 1
+          }
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: 构建日志（成功失败都留档，方便排查）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: 构建失败则中止
+        if: steps.build.outcome == 'failure'
+        shell: pwsh
+        run: throw "打包失败，请下载 build-log 查看最后 60 行"
 
       - name: 读取版本号
         id: ver
         shell: pwsh
         run: |
-          $v = .\.venv\Scripts\python.exe -c "from app.config import APP_VERSION; print(APP_VERSION)"
+          $v = (.\.venv\Scripts\python.exe -c "from app.config import APP_VERSION; print(APP_VERSION)").Trim()
+          if (-not $v) { throw "无法读取 APP_VERSION" }
           "version=$v" >> $env:GITHUB_OUTPUT
 
       - name: 上传构建产物（供手动下载）
@@ -57,16 +107,22 @@ jobs:
             release/checksums.txt
           retention-days: 30
 
-      - name: 创建 GitHub Release 并附安装包
+      - name: 创建/更新 GitHub Release 并附安装包
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $tag = "${{ github.ref_name }}"
           $ver = "${{ steps.ver.outputs.version }}"
-          gh release create $tag `
-            "release/BookShelf-Setup-$ver.exe" `
-            "release/checksums.txt" `
-            --title "书格 $ver" `
-            --notes "见 CHANGELOG.md。" `
-            --verify-tag
+          $tag = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "v$ver" }
+          $notes = "docs/release-notes-v$ver.md"
+          $exists = $false
+          try { gh release view $tag *> $null; $exists = $true } catch { }
+          if ($exists) {
+            gh release upload $tag "release/BookShelf-Setup-$ver.exe" "release/checksums.txt" --clobber
+          } else {
+            $ghArgs = @($tag, "release/BookShelf-Setup-$ver.exe", "release/checksums.txt",
+                        "--title", "书格 $ver", "--verify-tag")
+            if (Test-Path $notes) { $ghArgs += @("--notes-file", $notes) } else { $ghArgs += @("--generate-notes") }
+            gh release create @ghArgs
+          }
+          "Release: https://github.com/zhengquanstudio/BookShelf/releases/tag/$tag"
