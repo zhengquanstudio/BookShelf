@@ -609,11 +609,6 @@ QLineEdit:focus, QTextEdit:focus {
     background: #0e0f12;
 }
 
-#ReaderTopBar {
-    background: #1a1c20;
-    border-bottom: 1px solid #2b2f35;
-}
-
 #ReaderBack {
     background: #25282d;
     border: 1px solid #33383f;

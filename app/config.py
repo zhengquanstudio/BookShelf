@@ -135,7 +135,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_column_width": 920,
         "turn_style": "push",
         "click_turn": True,
-        "hide_chrome_delay": 2500,
+        "hide_chrome_delay": 1600,
         "header_footer": {
             "remaining_time": True,
             "remaining_pages": True,

@@ -934,6 +934,7 @@ class MainWindow(QMainWindow):
             self.db, self.settings, book_id, title, stylesheet=self.styleSheet()
         )
         window.destroyed.connect(lambda *_: self._reader_windows.pop(book_id, None))
+        window.book_changed.connect(self.refresh_library)
         self._reader_windows[book_id] = window
         window.show()
         window.raise_()

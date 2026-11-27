@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QMainWindow
 
@@ -13,6 +13,8 @@ from .pages.reader_container import ReaderContainer
 
 class ReaderWindow(QMainWindow):
     """承载 ReaderContainer 的独立顶层窗口，关闭时保存阅读进度。"""
+
+    book_changed = Signal(int)
 
     def __init__(
         self,
@@ -32,6 +34,7 @@ class ReaderWindow(QMainWindow):
             self.setStyleSheet(stylesheet)
         self.reader = ReaderContainer(db, settings, parent=self)
         self.reader.back_requested.connect(self.close)
+        self.reader.book_changed.connect(self.book_changed)
         self.setCentralWidget(self.reader)
         self.setMinimumSize(1000, 700)
         self.resize(1360, 920)

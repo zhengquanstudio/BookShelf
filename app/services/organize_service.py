@@ -176,6 +176,14 @@ class OrganizeService:
     def _root(self) -> Path:
         return Path(str(self.settings.data.get("library_root") or ""))
 
+    def plan_for_book(self, book_id: int, *, for_rename: bool = False) -> PreviewRow:
+        """计算单本书的目标路径，不写盘、不改库；供详情预览复用。"""
+        records = self._records_by_ids([int(book_id)])
+        if not records:
+            raise OrganizeError("书籍记录不存在")
+        root = Path("") if for_rename else self._root()
+        return self._plan_one(records[0], self.rules(action="copy"), root, None)
+
     # ---- 预览（F8） -------------------------------------------------
     def preview(
         self,

@@ -14,6 +14,7 @@ from PySide6.QtCore import (
     QEasingCurve,
     QEvent,
     QObject,
+    QParallelAnimationGroup,
     QPoint,
     QPropertyAnimation,
     QRunnable,
@@ -25,9 +26,12 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import (
     QColor,
+    QCursor,
     QDesktopServices,
     QGuiApplication,
     QKeySequence,
+    QPainter,
+    QPixmap,
     QShortcut,
 )
 from PySide6.QtWidgets import (
@@ -37,6 +41,7 @@ from PySide6.QtWidgets import (
     QColorDialog,
     QComboBox,
     QFrame,
+    QGraphicsOpacityEffect,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -44,6 +49,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMessageBox,
+    QMenu,
     QProgressBar,
     QPushButton,
     QSizePolicy,
@@ -64,8 +70,11 @@ from ...logger import get_logger
 from ...reader.converter import PreparedBook, pdf_outline, prepare_book
 from ...reader import ASSETS_DIR
 from ...reader.view import ReaderWebView
+from ...services.library_service import LibraryService
+from ...services.organize_service import OrganizeService
 from ...services.settings_service import SettingsService
 from ..theme_tokens import PALETTES, THEME_KEYS, ReaderPalette, palette_for
+from ..widgets.book_detail_overlay import BookDetailOverlay
 from ..widgets.icon_button import IconButton
 from ..widgets.segmented_progress import SegmentedProgress
 from ..widgets.stepper import Stepper
@@ -291,9 +300,10 @@ def _reader_qss(theme: ReaderPalette) -> str:
     #ReaderTopBar, #ReaderBottomBar {{ background: {theme.chrome}; border: 0; }}
     #ReaderTopBar {{ border-bottom: 1px solid {theme.border}; }}
     #ReaderBottomBar {{ border-top: 1px solid {theme.border}; }}
-    #ReaderTitleWrap {{ background: transparent; }}
-    #ReaderTitle {{ color: {theme.ink}; font-size: 13px; font-weight: 600; background: transparent; }}
-    #ReaderSub, #ReaderTocMeta, #ReaderPageLabel, #ReaderRemaining, #ReaderClock, #ReaderSearchCount,
+    #ReaderCover {{ background: {theme.panel}; border: 1px solid {theme.border}; border-radius: 3px; }}
+    #ReaderTitle {{ color: {theme.ink}; font-size: 13.5px; font-weight: 600; background: transparent; }}
+    #ReaderSub {{ color: {theme.muted}; font-size: 10.5px; background: transparent; }}
+    #ReaderTocMeta, #ReaderPageLabel, #ReaderRemaining, #ReaderClock, #ReaderSearchCount,
     #ReaderSectionTitle, #ReaderPrefsLabel {{ color: {theme.muted}; background: transparent; }}
     #ReaderPercent {{ color: {theme.ink}; background: transparent; font-weight: 600; }}
     QPushButton#ReaderIconButton {{ background: transparent; border: 0; border-radius: 9px; }}
@@ -372,6 +382,31 @@ def _reader_qss(theme: ReaderPalette) -> str:
         background: {theme.chrome}; color: {theme.ink};
         border: 1px solid {theme.border}; border-radius: 6px; padding: 3px 6px;
     }}
+    #ReaderDetailOverlay {{ background: {theme.panel}; border: 1px solid {theme.border}; border-radius: 12px; }}
+    #ReaderDetailScroll, #ReaderDetailBody {{ background: {theme.panel}; border: 0; }}
+    #ReaderDetailCover {{ background: {theme.chrome}; color: {theme.muted}; border: 1px solid {theme.border}; border-radius: 6px; }}
+    #ReaderDetailTitle {{ color: {theme.ink}; background: transparent; font-size: 15.5px; font-weight: 600; }}
+    #ReaderDetailAuthor, #ReaderDetailTags {{ color: {theme.muted}; background: transparent; font-size: 11px; }}
+    #ReaderDetailSection {{ color: {theme.muted}; background: transparent; font-size: 10.5px; font-weight: 600; }}
+    #ReaderDetailKey {{ color: {theme.muted}; background: transparent; font-size: 11.5px; }}
+    #ReaderDetailRow, #ReaderDetailPath, #ReaderDetailDescription {{ color: {theme.ink}; background: transparent; font-size: 11.5px; }}
+    #ReaderDetailArchiveState {{ background: transparent; font-size: 11px; }}
+    #ReaderDetailArchiveState[state="ok"] {{ color: #4e7d46; }}
+    #ReaderDetailArchiveState[state="pending"] {{ color: #a97c3c; }}
+    QPushButton#ReaderDetailClose, QPushButton#ReaderDetailDescriptionToggle {{
+        background: transparent; color: {theme.muted}; border: 0; border-radius: 7px;
+    }}
+    QPushButton#ReaderDetailClose:hover, QPushButton#ReaderDetailDescriptionToggle:hover {{ color: {theme.accent}; background: {hover}; }}
+    #ReaderDetailActions {{ background: {theme.chrome}; border-top: 1px solid {theme.border}; }}
+    QPushButton#ReaderDetailAction, QPushButton#ReaderDetailGhost {{
+        background: {theme.panel}; color: {theme.ink}; border: 1px solid {theme.border};
+        border-radius: 7px; padding: 4px 5px; font-size: 10.5px;
+    }}
+    QPushButton#ReaderDetailAction:hover {{ color: {theme.accent}; border-color: {theme.accent}; }}
+    QPushButton#ReaderDetailAction:disabled, QPushButton#ReaderDetailGhost:disabled {{ color: {theme.muted}; background: {theme.chrome}; }}
+    QPushButton#ReaderDetailGhost:disabled {{ border-style: dashed; }}
+    #ReaderDetailStatus {{ color: {theme.accent}; background: transparent; font-size: 11px; }}
+    #ReaderDetailStatus[error="true"] {{ color: #c05a78; }}
     QSplitter#ReaderSplitter::handle:horizontal {{ background: {theme.border}; }}
     QSplitter#ReaderSplitter::handle:horizontal:hover {{ background: {theme.accent}; }}
     """
@@ -423,10 +458,22 @@ class _PrepareWorker(QRunnable):
         self.signals.finished.emit(self.serial, prepared, outline)
 
 
+class _ClickableLabel(QLabel):
+    """封面与书名共用：保持 QLabel 的省略/绘图行为，同时提供点击信号。"""
+
+    clicked = Signal()
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        if event.button() == Qt.LeftButton and self.rect().contains(event.position().toPoint()):
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
+
+
 class ReaderContainer(QWidget):
     """阅读态整页容器；由主窗口在内容区切换显示。"""
 
     back_requested = Signal()
+    book_changed = Signal(int)
     loading_progress = Signal(str, int)
 
     def __init__(
@@ -488,6 +535,7 @@ class ReaderContainer(QWidget):
 
         self._build_ui()
         self._bind_shortcuts()
+        self._init_chrome_autohide()
         self._clock_timer = QTimer(self)
         self._clock_timer.setInterval(30000)
         self._clock_timer.timeout.connect(self._update_clock)
@@ -499,10 +547,11 @@ class ReaderContainer(QWidget):
     # ---- 界面搭建 ---------------------------------------------------
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
+        # 顶底栏使用绝对定位；预留区域在显隐时保持不变，正文不会跳动。
+        root.setContentsMargins(0, 52, 0, 40)
         root.setSpacing(0)
         self.topbar = self._build_topbar()
-        root.addWidget(self.topbar)
+        self.topbar.setParent(self)
 
         self._center = QWidget()
         center_layout = QVBoxLayout(self._center)
@@ -542,58 +591,107 @@ class ReaderContainer(QWidget):
         self.loading_overlay.hide()
 
         self.bottombar = self._build_bottom()
-        root.addWidget(self.bottombar)
+        self.bottombar.setParent(self)
+        self._bottombar_opacity = QGraphicsOpacityEffect(self.bottombar)
+        self._bottombar_opacity.setOpacity(1.0)
+        self.bottombar.setGraphicsEffect(self._bottombar_opacity)
+        self.topbar.raise_()
+        self.bottombar.raise_()
+        self.detail_panel = BookDetailOverlay(
+            self,
+            on_close=self._hide_book_detail,
+            on_reveal=self._reveal_book_folder,
+            on_rename=self._recalculate_book_path,
+            on_back=self._on_back,
+            on_note=self._detail_add_note,
+            on_bookmark=self._detail_add_bookmark,
+        )
         self.search_bar.hide()
 
     def _build_topbar(self) -> QWidget:
         bar = QFrame()
         bar.setObjectName("ReaderTopBar")
-        bar.setFixedHeight(44)
+        bar.setFixedHeight(52)
         layout = QHBoxLayout(bar)
-        layout.setContentsMargins(6, 0, 8, 0)
-        layout.setSpacing(4)
-
-        self.back_button = self._make_icon("library", "返回书库（Esc）")
-        self.back_button.clicked.connect(self._on_back)
-        layout.addWidget(self.back_button)
+        layout.setContentsMargins(12, 0, 12, 0)
+        layout.setSpacing(7)
 
         self.toc_button = self._make_icon(
-            "toc", "显示/隐藏目录（Ctrl+B）", checkable=True, checked=True
+            "toc", "显示/隐藏目录（Ctrl+B）", checkable=True, checked=True, size=30
         )
         self.toc_button.clicked.connect(self._toggle_toc)
         layout.addWidget(self.toc_button)
 
-        # 包标题的容器必须 WA_StyledBackground + transparent，否则会出现白色断层。
-        wrapper = QWidget()
-        wrapper.setObjectName("ReaderTitleWrap")
-        wrapper.setAttribute(Qt.WA_StyledBackground, True)
-        center = QVBoxLayout(wrapper)
-        center.setContentsMargins(4, 0, 4, 0)
-        center.setSpacing(0)
-        self.title_label = QLabel("未打开书籍")
+        self.cover_label = _ClickableLabel()
+        self.cover_label.setObjectName("ReaderCover")
+        self.cover_label.setFixedSize(26, 36)
+        self.cover_label.setAlignment(Qt.AlignCenter)
+        self.cover_label.setCursor(Qt.PointingHandCursor)
+        self.cover_label.setToolTip("打开书籍详情")
+        self.cover_label.clicked.connect(self._show_book_detail)
+        layout.addWidget(self.cover_label)
+
+        title_box = QVBoxLayout()
+        title_box.setContentsMargins(0, 0, 0, 0)
+        title_box.setSpacing(0)
+        self.title_label = _ClickableLabel("未打开书籍")
         self.title_label.setObjectName("ReaderTitle")
         self.title_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
-        center.addWidget(self.title_label, 0, Qt.AlignVCenter)
-        layout.addWidget(wrapper, 1)
+        self.title_label.setCursor(Qt.PointingHandCursor)
+        self.title_label.clicked.connect(self._show_book_detail)
+        title_box.addWidget(self.title_label, 0, Qt.AlignVCenter)
+        self.author_label = QLabel("")
+        self.author_label.setObjectName("ReaderSub")
+        self.author_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        title_box.addWidget(self.author_label, 0, Qt.AlignVCenter)
+        layout.addLayout(title_box, 1)
 
-        self.search_button = self._make_icon("search", "搜索正文（Ctrl+F）")
+        self.info_button = self._make_icon("info", "书籍详情", size=28)
+        self.info_button.clicked.connect(self._show_book_detail)
+        layout.addWidget(self.info_button)
+        layout.addStretch(1)
+
+        self.search_button = self._make_icon("search", "搜索正文（Ctrl+F）", size=30)
         self.search_button.clicked.connect(self.toggle_search)
         layout.addWidget(self.search_button)
-
         self.bookmark_button = self._make_icon(
-            "bookmark", "书签与批注", checkable=True
+            "bookmark", "书签", checkable=True, size=30
         )
         self.bookmark_button.clicked.connect(self._toggle_bookmarks)
         layout.addWidget(self.bookmark_button)
-
-        self.aa_button = self._make_icon("aa", "阅读设置：字体、版面、主题")
+        self.aa_button = self._make_icon("aa", "阅读设置：字体、版面、主题", size=30)
         self.aa_button.clicked.connect(self._show_prefs)
         layout.addWidget(self.aa_button)
+        self.note_button = self._make_icon("note", "笔记", size=30)
+        self.note_button.clicked.connect(lambda: self._select_sidebar_tab(1))
+        layout.addWidget(self.note_button)
+        self.pin_button = self._make_icon(
+            "pin", "固定侧栏", checkable=True, checked=True, size=30
+        )
+        layout.addWidget(self.pin_button)
+        self.more_button = self._make_icon("more", "更多", size=30)
+        self.more_menu = QMenu(self.more_button)
+        self.more_menu.addAction("全屏（F11）", self._toggle_fullscreen)
+        self.more_menu.addAction("返回书库", self._on_back)
+        self.more_menu.addAction("快捷键", self._show_shortcut_help)
+        self.more_menu.addSeparator()
+        self.favorite_button = self.more_menu.addAction("收藏")
+        self.favorite_button.setCheckable(True)
+        self.favorite_button.triggered.connect(self._on_favorite)
+        self.more_button.clicked.connect(self._show_more_menu)
+        layout.addWidget(self.more_button)
 
-        self.fullscreen_button = self._make_icon("fullscreen", "全屏（F11）")
-        self.fullscreen_button.clicked.connect(self._toggle_fullscreen)
-        layout.addWidget(self.fullscreen_button)
+        self._topbar_opacity = QGraphicsOpacityEffect(bar)
+        self._topbar_opacity.setOpacity(1.0)
+        bar.setGraphicsEffect(self._topbar_opacity)
         return bar
+
+    def _show_more_menu(self) -> None:
+        anchor = self.more_button.mapToGlobal(
+            QPoint(self.more_button.width() - self.more_menu.sizeHint().width(),
+                   self.more_button.height() + 4)
+        )
+        self.more_menu.exec(anchor)
 
     def _make_icon(
         self,
@@ -1262,8 +1360,10 @@ class ReaderContainer(QWidget):
         self._book = {}
         self._book_path = ""
         row = self.db.query_one(
-            "SELECT books.*, authors.name_zh AS author_name, authors.country AS country "
+            "SELECT books.*, authors.name_zh AS author_name, authors.country AS country, "
+            "series.name AS series_name "
             "FROM books LEFT JOIN authors ON authors.id = books.author_id "
+            "LEFT JOIN series ON series.id = books.series_id "
             "WHERE books.id = ?",
             (book_id,),
         )
@@ -1282,6 +1382,7 @@ class ReaderContainer(QWidget):
         self.bookmark_list.clear()
         self._select_sidebar_tab(0)
         self.search_bar.hide()
+        self.detail_panel.hide()
         self._update_header()
         self.loading_slow_label.hide()
         self._set_loading("探测格式", 10)
@@ -1389,6 +1490,7 @@ class ReaderContainer(QWidget):
         self.flush()
         self._end_session()
         self.search_bar.hide()
+        self.detail_panel.hide()
 
     def flush(self) -> None:
         if self._web_enabled:
@@ -1404,13 +1506,218 @@ class ReaderContainer(QWidget):
     def _display_author(self) -> str:
         return str(self._book.get("author_name") or self._book.get("author_raw") or "作者未知")
 
+    def _render_cover_thumb(self) -> None:
+        """顶栏 26×36 竖封面；无封面时用书名首字生成主题色占位。"""
+        w, h = 26, 36
+        pix = LibraryService.cover_for(self._book) if self._book else None
+        if pix is None or pix.isNull():
+            theme = self._resolve_palette()
+            pix = QPixmap(w, h)
+            pix.fill(QColor(theme.panel))
+            painter = QPainter(pix)
+            painter.setPen(QColor(theme.muted))
+            font = painter.font()
+            font.setPointSize(10)
+            font.setBold(True)
+            painter.setFont(font)
+            painter.drawText(
+                pix.rect(), Qt.AlignCenter, (self._display_title() or "?").strip()[:1]
+            )
+            painter.end()
+        else:
+            scaled = pix.scaled(
+                w, h, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation
+            )
+            pix = scaled.copy(
+                max(0, (scaled.width() - w) // 2),
+                max(0, (scaled.height() - h) // 2),
+                w,
+                h,
+            )
+        self.cover_label.setPixmap(pix)
+
+    def _on_favorite(self) -> None:
+        """顶栏收藏按钮：切换 books.favorite。"""
+        if not self._book_id:
+            return
+        try:
+            row = self.db.query_one(
+                "SELECT favorite FROM books WHERE id = ?", (self._book_id,)
+            )
+        except Exception:
+            row = None
+        current = int(row["favorite"] or 0) if row else 0
+        new_value = 0 if current else 1
+        try:
+            self.db.execute(
+                "UPDATE books SET favorite = ?, updated_at = datetime('now') WHERE id = ?",
+                (new_value, self._book_id),
+            )
+            self._book["favorite"] = new_value
+            self.favorite_button.blockSignals(True)
+            self.favorite_button.setChecked(bool(new_value))
+            self.favorite_button.blockSignals(False)
+            self.book_changed.emit(self._book_id)
+            if not self.detail_panel.isHidden():
+                self._populate_book_detail()
+        except Exception as exc:
+            log.warning("收藏写入失败：%s", exc)
+            # 回退按钮状态，避免 UI 与 DB 不一致。
+            self.favorite_button.blockSignals(True)
+            self.favorite_button.setChecked(bool(current))
+            self.favorite_button.blockSignals(False)
+        self._show_chrome()
+
+    def _show_book_detail(self) -> None:
+        """圆 i / 封面 / 书名：打开或关闭 R3a 只读详情浮层。"""
+        if not self._book_id:
+            return
+        if not self.detail_panel.isHidden():
+            self._hide_book_detail()
+            return
+        self.prefs_popup.hide()
+        self._populate_book_detail()
+        self._position_book_detail()
+        self.detail_panel.show()
+        self.detail_panel.raise_()
+        self._show_chrome()
+
+    def _hide_book_detail(self) -> None:
+        self.detail_panel.hide()
+        self._schedule_chrome_hide()
+
+    def _position_book_detail(self) -> None:
+        self.detail_panel.adjustSize()
+        anchor = self.info_button.mapTo(self, QPoint(0, self.info_button.height() + 6))
+        x = anchor.x() + self.info_button.width() - self.detail_panel.width()
+        x = max(8, min(x, self.width() - self.detail_panel.width() - 8))
+        available = max(280, self.height() - anchor.y() - 48)
+        self.detail_panel.setMaximumHeight(min(600, available))
+        self.detail_panel.move(x, anchor.y())
+
+    def _populate_book_detail(self) -> None:
+        progress_row = self.repo.get_progress(self._book_id) if self._book_id else None
+        progress = dict(progress_row) if progress_row is not None else {}
+        archive_path = ""
+        if self._book_id:
+            try:
+                archive_path = OrganizeService(self.db, self.settings).plan_for_book(
+                    self._book_id
+                ).target_path
+            except BookShelfError as exc:
+                log.info("暂不能计算归档路径：%s", exc)
+        self.detail_panel.populate(
+            self._book,
+            tags=LibraryService(self.db).tags_for(self._book_id) if self._book_id else [],
+            progress=progress,
+            archive_path=archive_path,
+            cover=LibraryService.cover_for(self._book),
+            current_page=int(self._location.get("page") or 0),
+            total_pages=int(self._location.get("total") or 0),
+        )
+
+    def _reveal_book_folder(self) -> None:
+        folder = Path(self._book_path).parent
+        if not self._book_path or not folder.is_dir():
+            self.detail_panel.show_status("文件所在文件夹不存在或已被移动", error=True)
+            return
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder))):
+            self.detail_panel.show_status("无法打开文件所在文件夹", error=True)
+
+    def _recalculate_book_path(self) -> None:
+        """先预览再复用“只重命名”服务；不跨目录、不覆盖同名文件。"""
+        if not self._book_id:
+            return
+        service = OrganizeService(self.db, self.settings)
+        try:
+            plan = service.plan_for_book(self._book_id, for_rename=True)
+        except BookShelfError as exc:
+            self.detail_panel.show_status(f"无法计算目标文件名：{exc}", error=True)
+            return
+        old = Path(self._book_path)
+        if not plan.target_name or plan.status == "failed":
+            self.detail_panel.show_status(
+                f"无法计算目标文件名：{plan.message or '模板结果为空'}", error=True
+            )
+            return
+        target = old.parent / plan.target_name
+        if old.name.casefold() == target.name.casefold():
+            self.detail_panel.show_status("文件名已符合当前模板，无需修改")
+            return
+        answer = QMessageBox.question(
+            self,
+            "按命名模板重算",
+            "将在原目录内重命名，不跨目录、不覆盖已有文件。\n\n"
+            f"当前：{old.name}\n目标：{target.name}\n\n是否继续？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if answer != QMessageBox.Yes:
+            return
+        try:
+            result = service.rename_only([self._book_id])
+        except BookShelfError as exc:
+            self.detail_panel.show_status(f"重命名失败：{exc}", error=True)
+            return
+        if result.failed or result.errors:
+            self.detail_panel.show_status(
+                "重命名失败：" + "；".join(result.errors or ["未知错误"]), error=True
+            )
+            return
+        if not self._reload_current_book():
+            self.detail_panel.show_status("文件已处理，但书库记录刷新失败", error=True)
+            return
+        self.book_changed.emit(self._book_id)
+        self.detail_panel.show_status(
+            f"已重命名为 {Path(self._book_path).name}"
+            if result.renamed
+            else "文件名已符合当前模板，无需修改"
+        )
+
+    def _reload_current_book(self) -> bool:
+        if not self._book_id:
+            return False
+        row = self.db.query_one(
+            "SELECT books.*, authors.name_zh AS author_name, authors.country AS country, "
+            "series.name AS series_name "
+            "FROM books LEFT JOIN authors ON authors.id = books.author_id "
+            "LEFT JOIN series ON series.id = books.series_id WHERE books.id = ?",
+            (self._book_id,),
+        )
+        if row is None:
+            return False
+        self._book = dict(row)
+        self._book_path = str(row["file_path"] or "")
+        self._update_header()
+        self.window().setWindowTitle(f"{self._display_title()} · 阅读")
+        self._populate_book_detail()
+        return True
+
+    def _detail_add_note(self) -> None:
+        self._hide_book_detail()
+        self._select_sidebar_tab(1)
+
+    def _detail_add_bookmark(self) -> None:
+        self._hide_book_detail()
+        self.add_bookmark()
+
     def _update_header(self) -> None:
         chapter = str(self._location.get("label") or "")
         title = self._display_title()
         self._title_full = f"{title} · {chapter}" if chapter else title
         self._elide_title()
 
-        parts = [self._display_author(), str(self._book.get("format") or "").upper()]
+        # R1：顶栏第二行固定展示作者；格式保留在悬停信息中。
+        author = self._display_author() if self._book else ""
+        fmt = str(self._book.get("format") or "").upper()
+        self.author_label.setText(author)
+        self.favorite_button.blockSignals(True)
+        self.favorite_button.setChecked(bool(self._book.get("favorite")))
+        self.favorite_button.blockSignals(False)
+
+        self._render_cover_thumb()
+
+        parts = [part for part in (author, fmt) if part]
         progress = self.repo.get_progress(self._book_id) if self._book_id else None
         seconds = int(progress["total_seconds"] or 0) if progress else 0
         if seconds >= 60:
@@ -1833,8 +2140,14 @@ class ReaderContainer(QWidget):
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)
+        if hasattr(self, "_chrome_anim"):
+            self._chrome_anim.stop()
+        if hasattr(self, "bottombar"):
+            self._position_chrome()
         if self.loading_overlay.isVisible():
             self.loading_overlay.setGeometry(self._center.rect())
+        if hasattr(self, "detail_panel") and self.detail_panel.isVisible():
+            self._position_book_detail()
         self._elide_title()
 
     # ---- 阅读会话（D2） ---------------------------------------------
@@ -2028,7 +2341,7 @@ class ReaderContainer(QWidget):
             else "push",
             "click_turn": _as_bool(data.get("click_turn"), True),
             "hide_chrome_delay": min(
-                10000, max(600, _as_int(data.get("hide_chrome_delay"), 2500))
+                10000, max(600, _as_int(data.get("hide_chrome_delay"), 1600))
             ),
             "header_footer": self._header_footer(),
             "texture": texture if texture in [value for value, _label in _TEXTURES] else "none",
@@ -2227,31 +2540,158 @@ class ReaderContainer(QWidget):
     def next_page(self) -> None:
         if self._web_enabled:
             self.web.next_page()
+        self._show_chrome()
 
     def prev_page(self) -> None:
         if self._web_enabled:
             self.web.prev_page()
+        self._show_chrome()
 
     def next_chapter(self) -> None:
         if self._web_enabled:
             self.web.turn_chapter(1)
+        self._show_chrome()
 
     def prev_chapter(self) -> None:
         if self._web_enabled:
             self.web.turn_chapter(-1)
+        self._show_chrome()
 
     def go_to_percent(self, percent: float) -> None:
         if self._web_enabled:
             self.web.go_to_percent(percent)
+        self._show_chrome()
 
     def _reset_font_size(self) -> None:
         self._update_prefs(font_size=config.DEFAULT_CONFIG["reader"]["font_size"])
 
+    # ---- R1：顶栏 / 底栏自动隐藏 ------------------------------------
+    def _init_chrome_autohide(self) -> None:
+        """顶底栏同步滑出；仅光标进入顶部或底部唤出区域时恢复。"""
+        self._chrome_visible = True
+        self._last_cursor: QPoint | None = None
+        self._chrome_hide_timer = QTimer(self)
+        self._chrome_hide_timer.setSingleShot(True)
+        self._chrome_hide_timer.timeout.connect(self._hide_chrome)
+        # WebEngine 不向宿主派发 mouseMove，用全局光标轮询兜底。
+        self._cursor_poll = QTimer(self)
+        self._cursor_poll.setInterval(100)
+        self._cursor_poll.timeout.connect(self._poll_cursor)
+
+        self._chrome_anim = QParallelAnimationGroup(self)
+        self._chrome_pos_anims: dict[str, QPropertyAnimation] = {}
+        self._chrome_opacity_anims: dict[str, QPropertyAnimation] = {}
+        for name, target, effect in (
+            ("top", self.topbar, self._topbar_opacity),
+            ("bottom", self.bottombar, self._bottombar_opacity),
+        ):
+            pos_anim = QPropertyAnimation(target, b"pos")
+            pos_anim.setDuration(180)
+            pos_anim.setEasingCurve(QEasingCurve.OutCubic)
+            opacity_anim = QPropertyAnimation(effect, b"opacity")
+            opacity_anim.setDuration(180)
+            opacity_anim.setEasingCurve(QEasingCurve.OutCubic)
+            self._chrome_anim.addAnimation(pos_anim)
+            self._chrome_anim.addAnimation(opacity_anim)
+            self._chrome_pos_anims[name] = pos_anim
+            self._chrome_opacity_anims[name] = opacity_anim
+        self._position_chrome()
+        self._cursor_poll.start()
+        self._schedule_chrome_hide()
+
+    def _poll_cursor(self) -> None:
+        pos = QCursor.pos()
+        if self._last_cursor is not None and (pos - self._last_cursor).manhattanLength() <= 2:
+            return
+        self._last_cursor = pos
+        local = self.mapFromGlobal(pos)
+        if self.rect().contains(local) and (
+            local.y() < 96 or local.y() > self.height() - 76
+        ):
+            self._show_chrome()
+
+    def _schedule_chrome_hide(self) -> None:
+        delay = int(self._reader_prefs().get("hide_chrome_delay") or 1600)
+        self._chrome_hide_timer.start(delay)
+
+    def _chrome_should_hide(self) -> bool:
+        if not self._book_id or self.topbar.isHidden() or self._sidebar_visible:
+            return False
+        if self.prefs_popup.isVisible() or self.search_bar.isVisible():
+            return False
+        if self.more_menu.isVisible() or not self.loading_overlay.isHidden():
+            return False
+        detail = getattr(self, "detail_panel", None)
+        return not bool(detail and not detail.isHidden())
+
+    def _chrome_targets(self, visible: bool) -> dict[str, QPoint]:
+        return {
+            "top": QPoint(0, 0 if visible else -self.topbar.height()),
+            "bottom": QPoint(
+                0,
+                self.height() - self.bottombar.height()
+                if visible
+                else self.height(),
+            ),
+        }
+
+    def _position_chrome(self) -> None:
+        targets = self._chrome_targets(getattr(self, "_chrome_visible", True))
+        self.topbar.setGeometry(0, targets["top"].y(), self.width(), 52)
+        self.bottombar.setGeometry(
+            0, targets["bottom"].y(), self.width(), self.bottombar.height()
+        )
+
+    def _animate_chrome(self, visible: bool) -> None:
+        self._chrome_anim.stop()
+        targets = self._chrome_targets(visible)
+        for name, target, effect in (
+            ("top", self.topbar, self._topbar_opacity),
+            ("bottom", self.bottombar, self._bottombar_opacity),
+        ):
+            pos_anim = self._chrome_pos_anims[name]
+            pos_anim.setStartValue(target.pos())
+            pos_anim.setEndValue(targets[name])
+            opacity_anim = self._chrome_opacity_anims[name]
+            opacity_anim.setStartValue(effect.opacity())
+            opacity_anim.setEndValue(1.0 if visible else 0.0)
+        self._chrome_anim.start()
+
+    def _show_chrome(self) -> None:
+        # 正文点击手动收起时，不因翻页等操作擅自恢复。
+        if self.topbar.isHidden():
+            self._schedule_chrome_hide()
+            return
+        was_visible = self._chrome_visible
+        self._chrome_visible = True
+        self.topbar.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        self.bottombar.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        if not was_visible:
+            self._animate_chrome(True)
+        else:
+            self._position_chrome()
+        self._schedule_chrome_hide()
+
+    def _hide_chrome(self) -> None:
+        if not self._chrome_should_hide():
+            self._schedule_chrome_hide()
+            return
+        self._chrome_hide_timer.stop()
+        self._chrome_visible = False
+        self.topbar.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.bottombar.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self._animate_chrome(False)
+
     def _toggle_chrome(self) -> None:
-        """点击正文中间：收起或呼出顶栏与底栏。"""
+        """点击正文中间：淡出时先恢复；否则收起或呼出顶栏与底栏。"""
+        if not self._chrome_visible:
+            self._show_chrome()
+            return
         visible = self.topbar.isHidden()
         self.topbar.setVisible(visible)
         self.bottombar.setVisible(visible)
+        if visible:
+            self._show_chrome()
 
     def _show_shortcut_help(self) -> None:
         QMessageBox.information(
@@ -2271,10 +2711,8 @@ class ReaderContainer(QWidget):
         window = self.window()
         if window.isFullScreen():
             window.showNormal()
-            self.fullscreen_button.setToolTip("全屏（Esc 退出）")
         else:
             window.showFullScreen()
-            self.fullscreen_button.setToolTip("退出全屏（Esc）")
 
     def _bind_shortcuts(self) -> None:
         """按规范 §3.6 注册快捷键；正文 iframe 内只保留 Escape。"""
@@ -2326,6 +2764,9 @@ class ReaderContainer(QWidget):
                 self._typing_shortcuts.append(shortcut)
 
     def _on_escape(self) -> None:
+        if not self.detail_panel.isHidden():
+            self._hide_book_detail()
+            return
         if self.window().isFullScreen():
             self._toggle_fullscreen()
             return
@@ -2334,6 +2775,9 @@ class ReaderContainer(QWidget):
             return
         if self.search_bar.isVisible():
             self.toggle_search()
+            return
+        if not self._chrome_visible:
+            self._show_chrome()
             return
         if self.topbar.isHidden() or self.bottombar.isHidden():
             self.topbar.setVisible(True)
