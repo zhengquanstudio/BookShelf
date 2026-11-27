@@ -1,4 +1,4 @@
-# BookShelf 书库助手
+# BookShelf 书格
 
 BookShelf 是一个 Windows 桌面电子书书库管理工具，支持 EPUB、PDF、MOBI、AZW3 的扫描、元数据整理、标签与文件夹管理、书库备份恢复和阅读。双击书籍会在独立的阅读窗口中打开，书库界面不受影响。
 

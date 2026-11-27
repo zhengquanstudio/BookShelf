@@ -97,7 +97,7 @@ class MainWindow(QMainWindow):
         self._backup_dialog: BackupDialog | None = None
         self._sample_dialog: SampleLibraryDialog | None = None
 
-        self.setWindowTitle(f"{config.APP_NAME_CN} BookShelf")
+        self.setWindowTitle(config.APP_NAME_CN)
         # 右侧详情栏的元数据需要完整显示，窗口过矮会压扁文字
         self.setMinimumSize(1180, 880)
         width, height = self.settings.data.get("ui", {}).get(

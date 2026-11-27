@@ -1,4 +1,4 @@
-"""书库助手 BookShelf 入口。
+"""书格 BookShelf 入口。
 
 职责：单实例锁、日志、数据库初始化、主窗口。
 """
@@ -88,7 +88,7 @@ def main() -> int:
             log.info("已转交给运行中的实例：%s", files)
             return 0
         QMessageBox.warning(
-            None, config.APP_NAME_CN, "书库助手已在运行，请勿重复启动。"
+            None, config.APP_NAME_CN, f"{config.APP_NAME_CN} 已在运行，请勿重复启动。"
         )
         return 1
 

@@ -16,7 +16,7 @@ from typing import Any
 from .errors import ConfigError
 
 APP_NAME = "BookShelf"
-APP_NAME_CN = "书库助手"
+APP_NAME_CN = "书格"
 APP_VERSION = "1.1.4"
 
 SUPPORTED_EXTENSIONS = (".epub", ".pdf", ".mobi", ".azw3")

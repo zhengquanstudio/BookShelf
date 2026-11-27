@@ -1,1 +1,1 @@
-"""书库助手 BookShelf 应用包。"""
+"""书格 BookShelf 应用包。"""

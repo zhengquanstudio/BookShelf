@@ -69,7 +69,7 @@ Name: "{autodesktop}\BookShelf"; Filename: "{app}\BookShelf.exe"; WorkingDir: "{
 Root: HKCU; Subkey: "Software\Classes\BookShelf.ebook"; ValueType: string; ValueName: ""; ValueData: "BookShelf 电子书"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\BookShelf.ebook\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\BookShelf.exe,0"
 Root: HKCU; Subkey: "Software\Classes\BookShelf.ebook\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\BookShelf.exe"" ""%1"""
-Root: HKCU; Subkey: "Software\Classes\Applications\BookShelf.exe"; ValueType: string; ValueName: "FriendlyAppName"; ValueData: "书库助手 BookShelf"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\Applications\BookShelf.exe"; ValueType: string; ValueName: "FriendlyAppName"; ValueData: "书格 BookShelf"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\Applications\BookShelf.exe\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\BookShelf.exe"" ""%1"""
 Root: HKCU; Subkey: "Software\Classes\.epub\OpenWithProgids"; ValueType: string; ValueName: "BookShelf.ebook"; ValueData: ""; Flags: uninsdeletevalue
 Root: HKCU; Subkey: "Software\Classes\.pdf\OpenWithProgids"; ValueType: string; ValueName: "BookShelf.ebook"; ValueData: ""; Flags: uninsdeletevalue
