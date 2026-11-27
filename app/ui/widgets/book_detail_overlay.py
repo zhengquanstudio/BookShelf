@@ -1,7 +1,7 @@
-"""R3a：阅读器内 404px 只读书籍详情浮层。
+"""R3a/R3b：阅读器内 404px 书籍详情浮层。
 
-组件只负责展示；数据库与文件操作由 ReaderContainer 注入回调，R3b/R3c
-的编辑、重新识别和 OPF 回写入口在此仅保留占位并禁用。
+R3a 只读展示；R3b 提供书名/作者/出版社/出版日期/页数/语言/ISBN/系列/标签
+九个输入框，校验与保存由 ReaderContainer 负责，组件只收集输入并发出信号。
 """
 
 from __future__ import annotations
@@ -9,13 +9,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -47,9 +48,12 @@ def _text(value: Any) -> str:
 
 
 class BookDetailOverlay(QFrame):
-    """404px 只读详情浮层；宿主控制显隐、锚点与所有动作。"""
+    """404px 详情浮层；宿主控制显隐、锚点、校验与所有写操作。"""
 
     WIDTH = 404
+
+    save_requested = Signal()
+    edit_cancelled = Signal()
 
     def __init__(
         self,
@@ -78,7 +82,6 @@ class BookDetailOverlay(QFrame):
         self.rename_button.clicked.connect(on_rename)
         self.close_button.clicked.connect(on_close)
         self.description_toggle.clicked.connect(self._toggle_description)
-
     def _build_header(self) -> QHBoxLayout:
         head = QHBoxLayout()
         head.setContentsMargins(16, 16, 10, 10)
@@ -129,9 +132,14 @@ class BookDetailOverlay(QFrame):
         layout.setContentsMargins(16, 4, 16, 12)
         layout.setSpacing(7)
 
+        self.view_container = QWidget()
+        view = QVBoxLayout(self.view_container)
+        view.setContentsMargins(0, 0, 0, 0)
+        view.setSpacing(7)
+
         section = QLabel("元数据")
         section.setObjectName("ReaderDetailSection")
-        layout.addWidget(section)
+        view.addWidget(section)
         grid = QGridLayout()
         grid.setHorizontalSpacing(10)
         grid.setVerticalSpacing(4)
@@ -155,31 +163,96 @@ class BookDetailOverlay(QFrame):
             grid.addWidget(key, row, 0, Qt.AlignTop)
             grid.addWidget(value, row, 1)
             setattr(self, attribute, value)
-        layout.addLayout(grid)
+        view.addLayout(grid)
 
-        layout.addWidget(self._section("数据文件路径"))
+        view.addWidget(self._section("数据文件路径"))
         self.d_path = self._path_label()
-        layout.addWidget(self.d_path)
-        layout.addWidget(self._section("归档路径"))
+        view.addWidget(self.d_path)
+        view.addWidget(self._section("归档路径"))
         self.d_archive_state = QLabel("状态：—")
         self.d_archive_state.setObjectName("ReaderDetailArchiveState")
-        layout.addWidget(self.d_archive_state)
+        view.addWidget(self.d_archive_state)
         self.d_archive_path = self._path_label()
-        layout.addWidget(self.d_archive_path)
+        view.addWidget(self.d_archive_path)
 
-        layout.addWidget(self._section("简介"))
+        view.addWidget(self._section("简介"))
         self.d_description = QLabel("—")
         self.d_description.setObjectName("ReaderDetailDescription")
         self.d_description.setWordWrap(True)
         self.d_description.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        layout.addWidget(self.d_description)
+        view.addWidget(self.d_description)
         self.description_toggle = QPushButton("展开")
         self.description_toggle.setObjectName("ReaderDetailDescriptionToggle")
         self.description_toggle.setCursor(Qt.PointingHandCursor)
         self.description_toggle.setFlat(True)
-        layout.addWidget(self.description_toggle, 0, Qt.AlignLeft)
+        view.addWidget(self.description_toggle, 0, Qt.AlignLeft)
+        layout.addWidget(self.view_container)
+
+        self.edit_container = self._build_edit()
+        self.edit_container.hide()
+        layout.addWidget(self.edit_container)
+        layout.addStretch(1)
         scroll.setWidget(body)
         return scroll
+
+    def _build_edit(self) -> QWidget:
+        """R3b 九个输入框；只收集文本，校验与落库交由宿主完成。"""
+        box = QWidget()
+        box.setObjectName("ReaderDetailEditBox")
+        layout = QVBoxLayout(box)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(7)
+
+        title = QLabel("编辑元数据")
+        title.setObjectName("ReaderDetailSection")
+        layout.addWidget(title)
+
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(6)
+        grid.setColumnStretch(1, 1)
+        specs = (
+            ("e_title", "书名", True),
+            ("e_author", "作者", False),
+            ("e_publisher", "出版社", False),
+            ("e_date", "出版日期", False),
+            ("e_pages", "页数", False),
+            ("e_language", "语言", False),
+            ("e_isbn", "ISBN", False),
+            ("e_series", "系列", False),
+            ("e_tags", "标签", False),
+        )
+        for row, (attribute, label_text, wide) in enumerate(specs):
+            label = QLabel(label_text)
+            label.setObjectName("ReaderDetailKey")
+            edit = QLineEdit()
+            edit.setObjectName("ReaderDetailInput")
+            edit.setClearButtonEnabled(not wide)
+            grid.addWidget(label, row, 0)
+            grid.addWidget(edit, row, 1)
+            setattr(self, attribute, edit)
+        self.e_tags.setPlaceholderText("多个标签用逗号分隔")
+        layout.addLayout(grid)
+
+        hint = QLabel("保存后写入书库并按当前命名模板归档；书名不能为空，ISBN 与页数需通过校验。")
+        hint.setObjectName("ReaderDetailEditHint")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+        return box
+
+    def _build_edit_actions(self) -> QWidget:
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
+        self.edit_cancel_button = self._action("取消")
+        self.edit_save_button = self._action("保存并同步到书库")
+        self.edit_save_button.setObjectName("ReaderDetailPrimary")
+        layout.addWidget(self.edit_cancel_button)
+        layout.addWidget(self.edit_save_button, 1)
+        self.edit_cancel_button.clicked.connect(self.cancel_edit)
+        self.edit_save_button.clicked.connect(self.save_requested.emit)
+        return row
 
     @staticmethod
     def _section(text: str) -> QLabel:
@@ -214,13 +287,18 @@ class BookDetailOverlay(QFrame):
         self.status_label.hide()
         layout.addWidget(self.status_label)
 
+        self.view_actions = QWidget()
+        view_layout = QVBoxLayout(self.view_actions)
+        view_layout.setContentsMargins(0, 0, 0, 0)
+        view_layout.setSpacing(7)
+
         path_row = QHBoxLayout()
         path_row.setSpacing(6)
         self.reveal_button = self._action("📂 打开文件夹")
         self.rename_button = self._action("⟲ 按命名模板重算")
         path_row.addWidget(self.reveal_button, 1)
         path_row.addWidget(self.rename_button, 1)
-        layout.addLayout(path_row)
+        view_layout.addLayout(path_row)
 
         primary = QGridLayout()
         primary.setHorizontalSpacing(6)
@@ -243,7 +321,7 @@ class BookDetailOverlay(QFrame):
             )
         ):
             primary.addWidget(button, index // 3, index % 3)
-        layout.addLayout(primary)
+        view_layout.addLayout(primary)
         if on_back is not None:
             self.back_button.clicked.connect(on_back)
         else:
@@ -255,20 +333,23 @@ class BookDetailOverlay(QFrame):
 
         secondary = QGridLayout()
         secondary.setHorizontalSpacing(6)
-        self.edit_button = self._action("✎ 编辑元数据", enabled=False)
+        self.edit_button = self._action("✎ 编辑元数据")
+        self.edit_button.setToolTip("R3b 编辑书名、作者、页数、ISBN 等")
+        self.edit_button.clicked.connect(self.begin_edit)
         self.research_button = self._action("⇩ 重新识别", enabled=False)
+        self.research_button.setToolTip("将在后续版本开放")
         self.restore_button = self._action("⟲ 恢复内嵌元数据", enabled=False)
-        for button, tooltip in (
-            (self.edit_button, "R3b 编辑模式尚未开放"),
-            (self.research_button, "将在编辑元数据阶段开放"),
-            (self.restore_button, "R3c 内嵌元数据回写尚未开放"),
-        ):
-            button.setToolTip(tooltip)
+        self.restore_button.setToolTip("R3c 内嵌元数据回写尚未开放")
         for index, button in enumerate(
             (self.edit_button, self.research_button, self.restore_button)
         ):
             secondary.addWidget(button, 0, index)
-        layout.addLayout(secondary)
+        view_layout.addLayout(secondary)
+        layout.addWidget(self.view_actions)
+
+        self.edit_actions = self._build_edit_actions()
+        self.edit_actions.hide()
+        layout.addWidget(self.edit_actions)
         return panel
 
     @staticmethod
@@ -347,6 +428,58 @@ class BookDetailOverlay(QFrame):
         self.d_description.setMaximumHeight(self.d_description.fontMetrics().lineSpacing() * 4)
         self._render_cover(cover, title)
         self._elide_paths()
+
+        # R3b：编辑表单始终与当前书籍同步，进入编辑时无需再取一次数据。
+        self.e_title.setText(title)
+        self.e_author.setText(
+            str(book.get("author_name") or book.get("author_raw") or "").strip()
+        )
+        self.e_publisher.setText(str(book.get("publisher") or "").strip())
+        self.e_date.setText(str(book.get("publish_date") or "").strip())
+        self.e_pages.setText(
+            "" if pages in (None, "") else str(pages)
+        )
+        self.e_language.setText(str(book.get("language") or "").strip())
+        self.e_isbn.setText(str(book.get("isbn") or "").strip())
+        self.e_series.setText(str(book.get("series_name") or "").strip())
+        self.e_tags.setText("，".join(tag_list))
+
+    # ---- R3b：编辑模式 ---------------------------------------------
+    def begin_edit(self) -> None:
+        self.show_status("")
+        self.view_container.hide()
+        self.view_actions.hide()
+        self.edit_container.show()
+        self.edit_actions.show()
+        self.e_title.setFocus()
+        self.e_title.selectAll()
+
+    def cancel_edit(self) -> None:
+        self.leave_edit()
+        self.edit_cancelled.emit()
+
+    def leave_edit(self) -> None:
+        """退出编辑态并恢复只读视图；保存成功后由宿主调用。"""
+        self.edit_container.hide()
+        self.edit_actions.hide()
+        self.view_container.show()
+        self.view_actions.show()
+
+    def is_editing(self) -> bool:
+        return not self.edit_container.isHidden()
+
+    def edit_values(self) -> dict[str, str]:
+        return {
+            "title": self.e_title.text().strip(),
+            "author": self.e_author.text().strip(),
+            "publisher": self.e_publisher.text().strip(),
+            "publish_date": self.e_date.text().strip(),
+            "pages": self.e_pages.text().strip(),
+            "language": self.e_language.text().strip(),
+            "isbn": self.e_isbn.text().strip(),
+            "series": self.e_series.text().strip(),
+            "tags": self.e_tags.text().strip(),
+        }
 
     def _render_cover(self, cover: QPixmap | None, title: str) -> None:
         if cover is None or cover.isNull():

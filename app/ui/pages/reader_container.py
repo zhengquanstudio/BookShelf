@@ -63,7 +63,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QUrl
 
 from ... import config
+from ...core import isbn as isbn_tools
 from ...db.connection import Database
+from ...db.repositories.book_repo import BookRepository
 from ...db.repositories.reading_repo import ReadingRepository
 from ...errors import BookShelfError
 from ...logger import get_logger
@@ -71,6 +73,7 @@ from ...reader.converter import PreparedBook, pdf_outline, prepare_book
 from ...reader import ASSETS_DIR
 from ...reader.view import ReaderWebView
 from ...services.library_service import LibraryService
+from ...services.metadata_service import MetadataService
 from ...services.organize_service import OrganizeService
 from ...services.settings_service import SettingsService
 from ..theme_tokens import PALETTES, THEME_KEYS, ReaderPalette, palette_for
@@ -405,6 +408,17 @@ def _reader_qss(theme: ReaderPalette) -> str:
     QPushButton#ReaderDetailAction:hover {{ color: {theme.accent}; border-color: {theme.accent}; }}
     QPushButton#ReaderDetailAction:disabled, QPushButton#ReaderDetailGhost:disabled {{ color: {theme.muted}; background: {theme.chrome}; }}
     QPushButton#ReaderDetailGhost:disabled {{ border-style: dashed; }}
+    QPushButton#ReaderDetailPrimary {{
+        background: {theme.accent}; color: #ffffff; border: 1px solid {theme.accent};
+        border-radius: 7px; padding: 4px 8px; font-size: 10.5px; font-weight: 600;
+    }}
+    QPushButton#ReaderDetailPrimary:hover {{ background: {theme.ink}; border-color: {theme.ink}; }}
+    QLineEdit#ReaderDetailInput {{
+        background: {theme.page}; color: {theme.ink}; border: 1px solid {theme.border};
+        border-radius: 6px; padding: 3px 6px; font-size: 11.5px; min-height: 20px;
+    }}
+    QLineEdit#ReaderDetailInput:focus {{ border-color: {theme.accent}; }}
+    #ReaderDetailEditHint {{ color: {theme.muted}; background: transparent; font-size: 10px; }}
     #ReaderDetailStatus {{ color: {theme.accent}; background: transparent; font-size: 11px; }}
     #ReaderDetailStatus[error="true"] {{ color: #c05a78; }}
     QSplitter#ReaderSplitter::handle:horizontal {{ background: {theme.border}; }}
@@ -606,6 +620,7 @@ class ReaderContainer(QWidget):
             on_note=self._detail_add_note,
             on_bookmark=self._detail_add_bookmark,
         )
+        self.detail_panel.save_requested.connect(self._save_book_detail_edit)
         self.search_bar.hide()
 
     def _build_topbar(self) -> QWidget:
@@ -1583,6 +1598,7 @@ class ReaderContainer(QWidget):
         self._show_chrome()
 
     def _hide_book_detail(self) -> None:
+        self.detail_panel.leave_edit()
         self.detail_panel.hide()
         self._schedule_chrome_hide()
 
@@ -1700,6 +1716,131 @@ class ReaderContainer(QWidget):
     def _detail_add_bookmark(self) -> None:
         self._hide_book_detail()
         self.add_bookmark()
+
+    # ---- R3b：编辑元数据 ---------------------------------------------
+    _EDIT_RESTORE_FIELDS = (
+        "title", "subtitle", "author_id", "author_raw", "isbn", "publisher",
+        "publish_date", "language", "series_id", "volume", "volume_raw",
+        "description", "page_count", "status", "confidence", "meta_source",
+        "file_path", "read_state", "favorite",
+    )
+
+    def _save_book_detail_edit(self) -> None:
+        """校验 → 写库 → 归档移动 → 刷新；任一步失败按快照回滚。"""
+        if not self._book_id:
+            return
+        panel = self.detail_panel
+        fields = panel.edit_values()
+        title = fields["title"]
+        if not title:
+            panel.show_status("书名不能为空", error=True)
+            return
+        if fields["isbn"] and not isbn_tools.is_valid(fields["isbn"]):
+            panel.show_status("ISBN 校验未通过，请填写 10 位或 13 位有效 ISBN", error=True)
+            return
+        page_count = None
+        if fields["pages"]:
+            if not fields["pages"].isdigit() or int(fields["pages"]) <= 0:
+                panel.show_status("页数必须是正整数", error=True)
+                return
+            page_count = int(fields["pages"])
+
+        raw_tags = (
+            fields["tags"]
+            .replace("；", ",")
+            .replace(";", ",")
+            .replace("，", ",")
+            .replace("、", ",")
+        )
+        tags = [tag.strip() for tag in raw_tags.split(",") if tag.strip()]
+
+        old_row = self.db.query_one(
+            "SELECT * FROM books WHERE id = ?", (self._book_id,)
+        )
+        if old_row is None:
+            panel.show_status("书籍记录不存在，无法保存", error=True)
+            return
+        snapshot = {key: old_row[key] for key in self._EDIT_RESTORE_FIELDS}
+        old_tags = LibraryService(self.db).tags_for(self._book_id)
+
+        try:
+            MetadataService(self.db).save_manual(
+                self._book_id,
+                {
+                    "title": title,
+                    "author_raw": fields["author"],
+                    "publisher": fields["publisher"],
+                    "publish_date": fields["publish_date"],
+                    "language": fields["language"],
+                    "isbn": fields["isbn"],
+                    "series": fields["series"],
+                },
+            )
+            books = BookRepository(self.db)
+            if page_count is not None:
+                books.update(self._book_id, page_count=page_count)
+            if not fields["author"]:
+                books.update(self._book_id, author_id=None, author_raw="")
+            if not fields["series"] and snapshot.get("series_id"):
+                books.update(self._book_id, series_id=None)
+            LibraryService(self.db).set_tags([self._book_id], tags)
+            moved, note = self._move_edited_book_to_archive()
+        except Exception as exc:
+            log.warning("保存元数据失败，开始回滚：%s", exc)
+            self._restore_book_snapshot(snapshot, old_tags)
+            panel.show_status(f"保存失败，已回滚：{exc}", error=True)
+            return
+
+        if not self._reload_current_book():
+            panel.show_status("已写入书库，但阅读器刷新失败，请关闭后重开", error=True)
+            return
+        panel.leave_edit()
+        panel.show_status(note)
+        self.book_changed.emit(self._book_id)
+        if moved and self._web_enabled:
+            # 文件已换位置：按已保存进度重新载入，避免继续读取旧路径。
+            self.open_book(self._book_id)
+
+    def _move_edited_book_to_archive(self) -> tuple[bool, str]:
+        """按当前命名模板把单本书移动到归档位置；返回是否移动及提示语。"""
+        root = str(self.settings.data.get("library_root") or "")
+        if not root or not Path(root).is_dir():
+            return False, "已保存并同步到书库（未设置书库根目录，文件未移动）"
+        service = OrganizeService(self.db, self.settings)
+        plan = service.plan_for_book(self._book_id)
+        if not plan.target_path:
+            if plan.status == "failed":
+                raise BookShelfError(plan.message or "无法计算归档路径")
+            return False, "已保存并同步到书库（未计算到归档路径，文件未移动）"
+        source = Path(plan.source_path)
+        target = Path(plan.target_path)
+        if source.resolve() == target.resolve():
+            return False, "已保存并同步到书库"
+        if plan.status == "conflict" and "目标已存在" in plan.message:
+            raise BookShelfError("归档目标已存在同名文件，未移动文件")
+        if plan.status == "skip":
+            return False, "已保存并同步到书库（按当前策略跳过移动）"
+        plan.action = "move"
+        result = service.execute([plan], action="move")
+        if result.failed or result.errors:
+            raise BookShelfError("；".join(result.errors or ["移动文件失败"]))
+        if result.moved or result.overwritten:
+            return True, "已保存并同步到书库，文件已归档"
+        return False, "已保存并同步到书库（文件未移动）"
+
+    def _restore_book_snapshot(
+        self, snapshot: dict[str, Any], old_tags: list[str]
+    ) -> None:
+        """回滚书籍字段与标签；回滚本身失败只记日志，不掩盖原始错误。"""
+        try:
+            BookRepository(self.db).update(self._book_id, **snapshot)
+        except Exception as exc:
+            log.error("回滚书籍字段失败：%s", exc)
+        try:
+            LibraryService(self.db).set_tags([self._book_id], old_tags)
+        except Exception as exc:
+            log.error("回滚标签失败：%s", exc)
+        self._reload_current_book()
 
     def _update_header(self) -> None:
         chapter = str(self._location.get("label") or "")

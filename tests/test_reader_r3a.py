@@ -69,7 +69,7 @@ def test_r3a_overlay_matches_prototype(reader):
     assert reader.detail_panel.reveal_button.text() == "📂 打开文件夹"
     assert reader.detail_panel.rename_button.text() == "⟲ 按命名模板重算"
     assert not reader.detail_panel.translate_button.isEnabled()
-    assert not reader.detail_panel.edit_button.isEnabled()
+    assert reader.detail_panel.edit_button.isEnabled()
     assert not reader.detail_panel.restore_button.isEnabled()
 
 
