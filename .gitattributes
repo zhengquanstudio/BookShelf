@@ -1,0 +1,6 @@
+# 统一换行与编码，避免 Actions 上因 BOM/CRLF 导致的脚本解析错误
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.py text eol=lf
+*.yml text eol=lf
+

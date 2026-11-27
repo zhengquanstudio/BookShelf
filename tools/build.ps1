@@ -1,4 +1,4 @@
-﻿﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
     [string]$InnoCompiler = "",
     [switch]$SkipInstaller
