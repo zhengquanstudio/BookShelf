@@ -53,6 +53,7 @@
 
   let lastTapAt = 0; // 快速连点合并为一次
   let turnLockAt = 0; // 防止同一次按键/点击被重复处理
+  let lastSpreadActive = null; // R2：摊开模式上一次的生效状态，变化时才回传 Python
 
   /* ---------------- 桥 ---------------- */
   function bridge() {
@@ -350,21 +351,70 @@
     return Number.isFinite(parsed) ? parsed : fallback;
   }
 
-  /** 纸面可用尺寸：跟随窗口，宽度取 max_column_width 与可用宽的较小值。 */
-  function paperMetrics() {
+  /** 单页期望宽度：page_width 为主，max_column_width 作为上限（兼容旧设置）。 */
+  function desiredPageWidth() {
     const prefs = STATE.prefs || {};
-    const maxColumn = Math.max(520, num(prefs.max_column_width, 920));
+    const maxCol = Math.max(320, num(prefs.max_column_width, 920));
+    const pageW = Math.max(320, num(prefs.page_width, 560));
+    return Math.min(pageW, maxCol);
+  }
+
+  function canvasInnerWidth() {
     const canvas = $("canvas");
-    if (!canvas) return { width: maxColumn, height: 640 };
+    if (!canvas) return 0;
     const style = getComputedStyle(canvas);
-    const availW =
-      canvas.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    return Math.max(
+      0,
+      canvas.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+    );
+  }
+
+  /** R2：计算摊开是否生效，以及当前单页宽度（单页/双页共用同一套 padding）。 */
+  function computeSpread() {
+    const prefs = STATE.prefs || {};
+    if (STATE.kind !== "epub") {
+      // PDF 等不做摊开：保持按最大列宽取宽，避免影响原渲染。
+      const maxCol = Math.max(520, num(prefs.max_column_width, 920));
+      const avail = canvasInnerWidth();
+      return { spread: false, pageWidth: Math.max(320, Math.min(maxCol, avail || maxCol)) };
+    }
+    const desired = desiredPageWidth();
+    const legacy = num(prefs.margin_px, 64);
+    const hMargin =
+      Math.max(0, num(prefs.margin_left, legacy)) +
+      Math.max(0, num(prefs.margin_right, legacy));
+    const avail = canvasInnerWidth();
+    const usable = Math.max(320, (avail || desired) - hMargin);
+    const wantSpread = String(prefs.page_mode) === "spread";
+    const canSpread = wantSpread && usable >= desired * 2 + 48; // 48 给中缝与余量
+    const pageWidth = canSpread
+      ? Math.min(desired, Math.max(320, Math.floor(usable / 2)))
+      : Math.min(desired, usable);
+    return { spread: canSpread, pageWidth };
+  }
+
+  /** 把摊开状态写到 DOM（dataset / --page-max），变化时回传 Python。 */
+  function applySpreadMode(spread, pageWidth) {
+    const paper = document.getElementById("paper");
+    if (paper) paper.dataset.pageMode = spread ? "spread" : "single";
+    document.documentElement.style.setProperty("--page-max", pageWidth + "px");
+    if (lastSpreadActive !== spread) {
+      lastSpreadActive = spread;
+      const b = bridge();
+      if (b && b.reportSpread && STATE.bookId) b.reportSpread(STATE.bookId, spread);
+    }
+  }
+
+  /** 纸面可用尺寸：高度跟随窗口，宽度由摊开计算决定。 */
+  function paperMetrics() {
+    const desired = desiredPageWidth();
+    const canvas = $("canvas");
+    if (!canvas) return { width: desired, height: 640 };
+    const style = getComputedStyle(canvas);
     const availH =
       canvas.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
-    return {
-      width: Math.max(320, Math.min(maxColumn, availW || maxColumn)),
-      height: Math.max(320, availH || 640),
-    };
+    const layout = computeSpread();
+    return { width: layout.pageWidth, height: Math.max(320, availH || 640) };
   }
 
   function layoutFoliate() {
@@ -376,18 +426,18 @@
     const bottom = Math.max(0, num(prefs.margin_bottom, legacy));
     const left = Math.max(0, num(prefs.margin_left, legacy));
     const right = Math.max(0, num(prefs.margin_right, legacy));
-    const columns = Number(prefs.column_count) === 2 ? 2 : 1;
+    const layout = computeSpread();
     const metrics = paperMetrics();
+    applySpreadMode(layout.spread, layout.pageWidth);
     renderer.setAttribute("flow", "paginated");
-    renderer.setAttribute("gap", columns === 2 ? "6%" : "8%");
+    renderer.setAttribute("gap", layout.spread ? "6%" : "8%");
     renderer.setAttribute("margin-top", top + "px");
     renderer.setAttribute("margin-bottom", bottom + "px");
     renderer.setAttribute("margin-left", left + "px");
     renderer.setAttribute("margin-right", right + "px");
-    renderer.setAttribute("max-column-count", String(columns));
+    renderer.setAttribute("max-column-count", layout.spread ? "2" : "1");
     renderer.setAttribute("max-inline-size", metrics.width + "px");
     renderer.setAttribute("max-block-size", metrics.height + "px");
-    document.documentElement.style.setProperty("--page-max", metrics.width + "px");
     applyFoliateStyles();
   }
 
@@ -395,10 +445,16 @@
 
   function fitPaper() {
     const metrics = paperMetrics();
+    const layout = computeSpread();
+    applySpreadMode(layout.spread, layout.pageWidth);
     document.documentElement.style.setProperty("--page-max", metrics.width + "px");
     if (STATE.foliate && STATE.foliate.renderer) {
       STATE.foliate.renderer.setAttribute("max-inline-size", metrics.width + "px");
       STATE.foliate.renderer.setAttribute("max-block-size", metrics.height + "px");
+      STATE.foliate.renderer.setAttribute(
+        "max-column-count",
+        layout.spread ? "2" : "1"
+      );
     }
     if (STATE.pdf) relayoutPdf();
   }

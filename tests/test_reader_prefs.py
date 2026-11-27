@@ -238,3 +238,59 @@ def test_d3_migrate_column_count_to_spread_once(reader, settings, tmp_path):
     # 迁移已持久化到磁盘。
     reloaded = SettingsService(tmp_path / "config.json").data
     assert reloaded.get("reader_prefs_migrated_v5") == 1
+
+
+# ---- R2 · 单页 / 双页（摊开） ------------------------------------
+def test_r2_page_mode_combo_writes_prefs(reader, settings):
+    assert reader.prefs_columns.itemText(0) == "单页"
+    assert reader.prefs_columns.itemData(0) == "single"
+    assert reader.prefs_columns.itemText(1) == "双页（摊开）"
+    assert reader.prefs_columns.itemData(1) == "spread"
+
+    reader.prefs_columns.setCurrentIndex(1)  # currentIndexChanged → 写 spread
+    assert settings.data["reader"]["page_mode"] == "spread"
+
+    reader.prefs_columns.setCurrentIndex(0)  # → 写回 single
+    assert settings.data["reader"]["page_mode"] == "single"
+
+
+def test_r2_sync_widgets_uses_page_mode(reader, settings):
+    settings.data["reader"]["page_mode"] = "spread"
+    reader._sync_prefs_widgets()
+    assert reader.prefs_columns.currentData() == "spread"
+
+
+def test_r2_page_label_spread(reader):
+    reader._book_id = 1
+    reader._location = {"page": 16, "total": 200}
+
+    reader._spread_active = False
+    reader._update_page_label()
+    assert reader.page_label.text() == "16/200"
+
+    reader._spread_active = True
+    reader._update_page_label()
+    assert reader.page_label.text() == "16–17/200"  # 摊开显示左右页范围
+
+
+def test_r2_narrow_window_disables_spread_option(reader, settings):
+    reader._book_id = 1
+    settings.data["reader"]["page_mode"] = "spread"
+
+    reader._on_spread_changed(1, False)  # 用户要双页，但窗口太窄
+    assert reader._spread_active is False
+    item = reader.prefs_columns.model().item(1)
+    assert item.isEnabled() is False
+    assert "太窄" in item.toolTip()
+
+    reader._on_spread_changed(1, True)  # 窗口变宽，双页恢复生效
+    assert item.isEnabled() is True
+    assert item.toolTip() == ""
+
+
+def test_r2_spread_signal_ignores_other_book(reader, settings):
+    reader._book_id = 1
+    settings.data["reader"]["page_mode"] = "spread"
+    reader._on_spread_changed(2, False)  # 不是当前书，应忽略
+    assert reader._spread_active is False
+    assert reader.prefs_columns.model().item(1).isEnabled() is True

@@ -328,3 +328,25 @@ body.pdf-mode #viewer {
   fill: #ffe08a;
   fill-opacity: 0.42;
 }
+
+/* R2：双页摊开 —— 纸面放宽到两页宽，中间画书脊阴影，关闭翻页过渡名。 */
+#paper[data-page-mode="spread"] {
+  max-width: min(100%, calc(var(--page-max, 560px) * 2));
+  view-transition-name: none !important;
+}
+
+#paper[data-page-mode="spread"]::after {
+  content: "";
+  position: absolute;
+  top: 10%;
+  bottom: 10%;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0.25),
+    rgba(0, 0, 0, 0)
+  );
+  pointer-events: none;
+  z-index: 2;
+}

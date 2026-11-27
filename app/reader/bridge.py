@@ -35,6 +35,7 @@ class ReaderBridge(QObject):
     searchRequested = Signal()
     searchFinished = Signal(int, int)
     chromeToggleRequested = Signal()
+    spreadChanged = Signal(int, bool)  # (book_id, 摊开是否生效)
 
     def __init__(self, db: Database, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -150,6 +151,11 @@ class ReaderBridge(QObject):
     @Slot(int, int)
     def searchResult(self, total: int, current: int) -> None:
         self.searchFinished.emit(int(total), int(current))
+
+    @Slot(int, bool)
+    def reportSpread(self, book_id: int, active: bool) -> None:
+        """JS 报告当前摊开模式是否真正生效（窗口太窄会临时回落单页）。"""
+        self.spreadChanged.emit(int(book_id), bool(active))
 
     @Slot(str, result=str)
     def askNote(self, selected_text: str) -> str:

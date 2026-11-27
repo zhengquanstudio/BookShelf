@@ -449,6 +449,7 @@ class ReaderContainer(QWidget):
         self._prepared: Any = None
         self._toc: list[dict[str, Any]] = []
         self._location: dict[str, Any] = {}
+        self._spread_active = False  # R2：摊开模式当前是否真正生效
         # 已访问章节的页码缓存：EPUB 未访问的目录行显示 ~，不为了页码逐章 goTo。
         self._chapter_pages: dict[str, int] = {}
         self._icon_buttons: list[IconButton] = []
@@ -772,6 +773,7 @@ class ReaderContainer(QWidget):
             bridge.searchRequested.connect(self.toggle_search)
             bridge.searchFinished.connect(self._on_search_finished)
             bridge.chromeToggleRequested.connect(self._toggle_chrome)
+            bridge.spreadChanged.connect(self._on_spread_changed)
             bridge.externalRequested.connect(self.open_external)
             bridge.renderingFinished.connect(self._on_rendered)
             bridge.failed.connect(self._on_web_failed)
@@ -1059,10 +1061,10 @@ class ReaderContainer(QWidget):
         layout.addLayout(grid)
 
         self.prefs_columns = QComboBox()
-        self.prefs_columns.addItem("单栏", 1)
-        self.prefs_columns.addItem("双栏", 2)
+        self.prefs_columns.addItem("单页", "single")
+        self.prefs_columns.addItem("双页（摊开）", "spread")
         self.prefs_columns.currentIndexChanged.connect(self._on_columns_changed)
-        layout.addLayout(self._prefs_row("分栏", self.prefs_columns))
+        layout.addLayout(self._prefs_row("展示方式", self.prefs_columns))
         self.prefs_max_width = Stepper(520, 1200, 20, 920)
         self.prefs_max_width.changed.connect(
             lambda value: self._update_prefs(max_column_width=int(round(value)))
@@ -1225,7 +1227,7 @@ class ReaderContainer(QWidget):
 
     def _on_columns_changed(self, _index: int) -> None:
         if not self._syncing:
-            self._update_prefs(column_count=int(self.prefs_columns.currentData() or 1))
+            self._update_prefs(page_mode=str(self.prefs_columns.currentData() or "single"))
 
     def _pick_accent(self) -> None:
         current = QColor(self._resolve_palette().accent)
@@ -1616,10 +1618,36 @@ class ReaderContainer(QWidget):
         self.progress.blockSignals(True)
         self.progress.setValue(int(percent * 1000))
         self.progress.blockSignals(False)
-        self.page_label.setText(f"{page}/{total}" if total else f"第 {page} 页")
+        self._update_page_label()
         self._update_remaining(section_seconds)
         self._update_header()
         self._highlight_toc(label, href)
+
+    def _update_page_label(self) -> None:
+        """底栏页码：摊开时显示 16–17，单页显示 16。"""
+        page = int(self._location.get("page") or 0)
+        total = int(self._location.get("total") or 0)
+        if self._spread_active and page > 0:
+            right = min(page + 1, total) if total else page + 1
+            text = f"{page}–{right}/{total}" if total else f"第 {page}–{right} 页"
+        elif total:
+            text = f"{page}/{total}"
+        else:
+            text = f"第 {page} 页"
+        self.page_label.setText(text)
+
+    def _on_spread_changed(self, book_id: int, active: bool) -> None:
+        if book_id != self._book_id:
+            return
+        self._spread_active = bool(active)
+        # 用户选了双页但窗口太窄 → 临时回落单页：置灰双页选项提示，不改 prefs。
+        user_wants_spread = self._reader_prefs()["page_mode"] == "spread"
+        narrow = user_wants_spread and not self._spread_active
+        item = self.prefs_columns.model().item(1)  # 双页（摊开）
+        if item is not None:
+            item.setEnabled(not narrow)
+            item.setToolTip("窗口太窄，已临时回落单页" if narrow else "")
+        self._update_page_label()
 
     def _on_progress_preview(self, value: int) -> None:
         """拖动进度条时只预览页码，松手才真正跳转。"""
@@ -2096,7 +2124,7 @@ class ReaderContainer(QWidget):
             self.prefs_margin_bottom.set_value(prefs["margin_bottom"])
             self.prefs_margin_left.set_value(prefs["margin_left"])
             self.prefs_margin_right.set_value(prefs["margin_right"])
-            self._set_combo_data(self.prefs_columns, prefs["column_count"])
+            self._set_combo_data(self.prefs_columns, prefs["page_mode"])
             self.prefs_max_width.set_value(prefs["max_column_width"])
             for key, button in self.turn_buttons.items():
                 button.setChecked(key == prefs["turn_style"])
