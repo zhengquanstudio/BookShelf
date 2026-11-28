@@ -190,6 +190,7 @@ class ShelfPage(QWidget):
 
     open_requested = Signal(int)
     go_library_requested = Signal()
+    scan_requested = Signal()
     query_changed = Signal(str, str, bool)
 
     SORTS = (
@@ -205,6 +206,7 @@ class ShelfPage(QWidget):
         self.model = model
         self.library = library
         self.total = 0
+        self._shelf_only = True
         self._desc = True
         self._format_name = ""
         self._tag_filter = ""
@@ -270,7 +272,7 @@ class ShelfPage(QWidget):
         empty.addWidget(self.empty_hint)
         self.go_library_button = QPushButton("去书库")
         self.go_library_button.setObjectName("PrimaryButton")
-        self.go_library_button.clicked.connect(self.go_library_requested)
+        self.go_library_button.clicked.connect(self._on_empty_action)
         empty.addWidget(self.go_library_button, 0, Qt.AlignCenter)
         empty.addStretch(1)
         self.stack.addWidget(self.empty_page)
@@ -295,6 +297,16 @@ class ShelfPage(QWidget):
     @property
     def card_count(self) -> int:
         return self.model.rowCount()
+
+    def set_shelf_only(self, enabled: bool) -> None:
+        """书架页只显示已读/收藏；书库网格模式显示当前书库查询的全部结果。"""
+        self._shelf_only = bool(enabled)
+        if self._shelf_only:
+            self.empty_hint.setText("书架还空着，去书库挑一本")
+            self.go_library_button.setText("去书库")
+        else:
+            self.empty_hint.setText("书库还没有可显示的书，扫描一个文件夹开始")
+            self.go_library_button.setText("扫描新书")
 
     def set_filters(self, *, format_name: str = "", tag: str = "", folder: str = "") -> None:
         self._format_name = format_name
@@ -327,7 +339,7 @@ class ShelfPage(QWidget):
             page_size=1000,
             sort=str(self.sort_combo.currentData() or "progress"),
             desc=self._desc,
-            shelf_only=True,
+            shelf_only=self._shelf_only,
         )
         self.model.set_rows(rows)
         self.total = total
@@ -347,6 +359,12 @@ class ShelfPage(QWidget):
         cell_width = max(156, available // columns)
         self.list.setGridSize(QSize(cell_width, ShelfCardDelegate.CARD_H))
         self.list.doItemsLayout()
+
+    def _on_empty_action(self) -> None:
+        if self._shelf_only:
+            self.go_library_requested.emit()
+        else:
+            self.scan_requested.emit()
 
     def _on_query_changed(self, *_args) -> None:
         self.query_changed.emit(

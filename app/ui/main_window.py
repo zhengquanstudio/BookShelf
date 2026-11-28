@@ -320,11 +320,12 @@ class MainWindow(QMainWindow):
         self._search_timer.timeout.connect(self.refresh_library)
         self.search_box.textChanged.connect(lambda: self._search_timer.start())
 
-        # 视图切换：列表 / 网格（网格视图随 T7 书架页落地后接线）
-        self._library_view_mode = "list"
+        # 视图切换：列表 / 网格；QSettings 记住用户上次选择。
+        saved_view = str(self.qt_settings.value("ui.library_view", "list"))
+        self._library_view_mode = saved_view if saved_view in {"list", "grid"} else "list"
         viewseg = self._make_segment()
-        self._view_list_btn = self._make_toggle_button("列表", checked=True)
-        self._view_grid_btn = self._make_toggle_button("网格")
+        self._view_list_btn = self._make_toggle_button("列表", checked=self._library_view_mode == "list")
+        self._view_grid_btn = self._make_toggle_button("网格", checked=self._library_view_mode == "grid")
         self._view_group = QButtonGroup(self)
         self._view_group.setExclusive(True)
         self._view_group.addButton(self._view_list_btn)
@@ -367,10 +368,23 @@ class MainWindow(QMainWindow):
         return btn
 
     def _set_library_view(self, mode: str) -> None:
+        mode = mode if mode in {"list", "grid"} else "list"
         self._library_view_mode = mode
-        # 网格视图尚未实现（T7 书架页），当前始终显示表格
-        if hasattr(self, "table_stack"):
-            self.table_stack.setCurrentWidget(self.table)
+        self.qt_settings.setValue("ui.library_view", mode)
+        self.qt_settings.sync()
+        self._view_list_btn.setChecked(mode == "list")
+        self._view_grid_btn.setChecked(mode == "grid")
+        if not hasattr(self, "table_stack"):
+            return
+        # 顶栏在任何页面都可见；切换视图时回到书库，避免“点了没反应”。
+        self._nav_key = "all"
+        self._nav_display_key = "all"
+        self.nav.set_current_silent("all")
+        self.content_stack.setCurrentWidget(self.content_splitter)
+        self.vertical.widget(1).setVisible(True)
+        self._mount_shelf_in_library()
+        self.shelf_page.set_shelf_only(False)
+        self.refresh_library()
 
     # ---- 主体三栏 + 底部 -------------------------------------------
     def _build_body(self) -> None:
@@ -466,6 +480,8 @@ class MainWindow(QMainWindow):
         self.shelf_page = ShelfPage(self.table_model, self.library)
         self.shelf_page.open_requested.connect(self._open_book_by_id)
         self.shelf_page.go_library_requested.connect(self._go_library_from_shelf)
+        self.shelf_page.scan_requested.connect(self.open_scan_dialog)
+        self.shelf_page.set_shelf_only(False)
         self.shelf_page.query_changed.connect(self._on_shelf_query)
         self.stats_page = StatsPage(self.db)
         self.stats_page.go_shelf_requested.connect(self._go_shelf)
@@ -482,7 +498,7 @@ class MainWindow(QMainWindow):
         self.content_stack.addWidget(self.author_page)
         self.content_stack.addWidget(self.folder_page)
         self.content_stack.addWidget(self.help_page)
-        self.content_stack.addWidget(self.shelf_page)
+        self.table_stack.addWidget(self.shelf_page)
         self.content_stack.addWidget(self.stats_page)
         self.content_stack.addWidget(self.notes_page)
 
@@ -641,9 +657,12 @@ class MainWindow(QMainWindow):
         self._library_total = total
         self.table_model.set_rows(rows)
         stats = self._refresh_stats()
-        self.table_stack.setCurrentWidget(
-            self.empty_page if stats.get("total", 0) == 0 else self.table
-        )
+        if self._library_view_mode == "grid" and self.table_stack.indexOf(self.shelf_page) >= 0:
+            self.table_stack.setCurrentWidget(self.shelf_page)
+        else:
+            self.table_stack.setCurrentWidget(
+                self.empty_page if stats.get("total", 0) == 0 else self.table
+            )
         self.clear_filter_button.setVisible(bool(self._tag_filter or self._folder_filter))
 
         target_row = -1
@@ -663,7 +682,14 @@ class MainWindow(QMainWindow):
         self._update_load_more(total, shown)
         self._update_status(total, shown)
         self._refresh_batch_bar()
-        if self.content_stack.currentWidget() is self.shelf_page:
+        shelf_active = self.content_stack.currentWidget() is self.shelf_page
+        library_grid_active = (
+            self._library_view_mode == "grid"
+            and self.content_stack.currentWidget() is self.content_splitter
+            and self.table_stack.indexOf(self.shelf_page) >= 0
+        )
+        if shelf_active or library_grid_active:
+            self.shelf_page.set_shelf_only(shelf_active)
             self.shelf_page.set_filters(
                 format_name=str(self.format_filter.currentData() or ""),
                 tag=self._tag_filter,
@@ -726,7 +752,7 @@ class MainWindow(QMainWindow):
             self._load_more_library()
 
     def _update_load_more(self, total: int, shown: int) -> None:
-        self.load_more_button.setVisible(shown < total)
+        self.load_more_button.setVisible(self._library_view_mode != "grid" and shown < total)
         self.load_more_button.setText(f"加载更多（已显示 {shown} / 共 {total} 本）")
 
     def _refresh_stats(self) -> dict[str, int]:
@@ -1207,7 +1233,19 @@ class MainWindow(QMainWindow):
         self.nav.set_current_silent("all")
         self._on_nav("all")
 
+    def _mount_shelf_in_library(self) -> None:
+        if self.table_stack.indexOf(self.shelf_page) < 0:
+            self.content_stack.removeWidget(self.shelf_page)
+            self.table_stack.addWidget(self.shelf_page)
+
+    def _mount_shelf_in_content(self) -> None:
+        if self.content_stack.indexOf(self.shelf_page) < 0:
+            self.table_stack.removeWidget(self.shelf_page)
+            self.content_stack.addWidget(self.shelf_page)
+
     def _show_library(self) -> None:
+        self._mount_shelf_in_library()
+        self.shelf_page.set_shelf_only(False)
         self.content_stack.setCurrentWidget(self.content_stack.widget(0))
         self.vertical.widget(1).setVisible(True)
         self.refresh_library()
@@ -1346,6 +1384,8 @@ class MainWindow(QMainWindow):
             self._show_library()
         elif key == "shelf":
             self._nav_display_key = "shelf"
+            self._mount_shelf_in_content()
+            self.shelf_page.set_shelf_only(True)
             self.content_stack.setCurrentWidget(self.shelf_page)
             self.vertical.widget(1).setVisible(False)
             self.shelf_page.set_filters(
