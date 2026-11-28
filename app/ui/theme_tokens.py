@@ -99,3 +99,55 @@ def palette_for(
     if system_dark and selected.key not in _DARK_KEYS:
         return PALETTES["dark"]
     return selected
+
+
+# ---- 高亮荧光笔 4 色（决策回复 §二）-------------------------------------
+# 只存语义名（blue/amber/green/pink），不存 hex；浅色纸面直接用 hex，
+# 夜间纸面自动压暗。换主题无需迁移数据。
+HIGHLIGHT_COLORS: tuple[str, ...] = ("blue", "amber", "green", "pink")
+DEFAULT_HIGHLIGHT = "blue"
+
+HIGHLIGHT_LIGHT: dict[str, str] = {
+    "blue": "#CFE3F3",
+    "amber": "#F5D9A8",
+    "green": "#D8E8C2",
+    "pink": "#ECCFD8",
+}
+HIGHLIGHT_NIGHT: dict[str, str] = {
+    "blue": "#2C4257",
+    "amber": "#4A3B22",
+    "green": "#31412A",
+    "pink": "#45303A",
+}
+
+# 老库曾存的 hex → 语义名（不迁移数据，仅在读写时归一化）。
+_HIGHLIGHT_LEGACY: dict[str, str] = {
+    "#ffe08a": "amber",
+    "#f2c14e": "amber",
+    "#b7e1a1": "green",
+    "#9cc39a": "green",
+    "#d8e8c2": "green",
+    "#a8d8f0": "blue",
+    "#8fb3d9": "blue",
+    "#cfe3f3": "blue",
+    "#f5b7c4": "pink",
+    "#d99c98": "pink",
+    "#eccfd8": "pink",
+    "#b6a4d9": "pink",
+}
+
+
+def normalize_highlight_name(value: object) -> str:
+    """任意高亮颜色输入 → 语义名；无法识别回退默认蓝。"""
+    if value is None:
+        return DEFAULT_HIGHLIGHT
+    text = str(value).strip().lower()
+    if text in HIGHLIGHT_COLORS:
+        return text
+    return _HIGHLIGHT_LEGACY.get(text, DEFAULT_HIGHLIGHT)
+
+
+def resolve_highlight_color(name: object, *, dark: bool) -> str:
+    """语义名 → 当前纸面下的 hex；深色纸面用压暗后的色值。"""
+    key = normalize_highlight_name(name)
+    return (HIGHLIGHT_NIGHT if dark else HIGHLIGHT_LIGHT)[key]

@@ -80,7 +80,14 @@ from ...services.library_service import LibraryService
 from ...services.metadata_service import MetadataService
 from ...services.organize_service import OrganizeService
 from ...services.settings_service import SettingsService
-from ..theme_tokens import PALETTES, THEME_KEYS, ReaderPalette, mix, palette_for
+from ..theme_tokens import (
+    PALETTES,
+    THEME_KEYS,
+    ReaderPalette,
+    mix,
+    normalize_highlight_name,
+    palette_for,
+)
 from ..widgets.book_detail_overlay import BookDetailOverlay
 from ..widgets.icon_button import IconButton
 from ..widgets.reader_cover_card import ReaderCoverCard
@@ -2376,7 +2383,7 @@ class ReaderContainer(QWidget):
                 marks.append(
                     {
                         "cfiRange": str(locator["cfiRange"]),
-                        "color": str(row["color"] or "#ffe08a"),
+                        "color": normalize_highlight_name(row["color"]),
                     }
                 )
         return marks
@@ -2659,6 +2666,7 @@ class ReaderContainer(QWidget):
             "show_clock": _as_bool(data.get("show_clock"), True),
             "show_remaining": _as_bool(data.get("show_remaining"), True),
             "highlight_colors": _highlight_colors(data.get("highlight_colors")),
+            "highlight_color": normalize_highlight_name(data.get("highlight_color")),
             "turn_anim": str(data.get("turn_anim") or "flip")
             if str(data.get("turn_anim") or "flip") in {"instant", "push", "flip"}
             else "flip",

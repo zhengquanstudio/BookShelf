@@ -216,6 +216,11 @@
     root.setProperty("--chrome", p.chrome || "#f3f1ec");
     root.setProperty("--border", p.border || "#ddd8cd");
     root.setProperty("--accent", p.accent || "#3f6fa8");
+    const dark = p.key === "dark" || p.key === "night";
+    document.documentElement.setAttribute(
+      "data-paper",
+      dark ? "night" : (p.key || "light")
+    );
     STATE.lastPalette = {
       canvas: p.canvas || "#e9e6df",
       page: p.page || "#fbfaf7",
@@ -283,6 +288,28 @@
       );
     }
     return "none";
+  }
+
+  /* ---- 高亮荧光笔 4 色：存语义名，按当前纸面解析 hex（T13）---- */
+  const HL_PALETTES = {
+    light: { blue: "#CFE3F3", amber: "#F5D9A8", green: "#D8E8C2", pink: "#ECCFD8" },
+    dark: { blue: "#2C4257", amber: "#4A3B22", green: "#31412A", pink: "#45303A" },
+  };
+  const HL_DEFAULT = "blue";
+  function hlName(v) {
+    const s = String(v == null ? "" : v).trim().toLowerCase();
+    return HL_PALETTES.light[s] ? s : HL_DEFAULT;
+  }
+  function isDarkPaper() {
+    const p = (STATE.prefs && STATE.prefs.palette) || {};
+    const k = p.key || (STATE.prefs && STATE.prefs.theme) || "";
+    return k === "dark" || k === "night";
+  }
+  function hlColor(name) {
+    return HL_PALETTES[isDarkPaper() ? "dark" : "light"][hlName(name)];
+  }
+  function activeHighlightName() {
+    return hlName(STATE.prefs && STATE.prefs.highlight_color);
   }
 
   /** 注入正文样式：字体、字号、行距、主题色，与 Readest 的排版面板一致。 */
@@ -750,7 +777,9 @@
         detail.draw(Foliate.Overlayer.outline);
       } else {
         detail.draw(Foliate.Overlayer.highlight, {
-          color: (detail.annotation && detail.annotation.color) || "#ffe08a",
+          color: hlColor(
+            (detail.annotation && detail.annotation.color) || activeHighlightName()
+          ),
         });
       }
     });
@@ -771,7 +800,7 @@
     for (const mark of payload.highlights || []) {
       if (!mark || !mark.cfiRange) continue;
       try {
-        await host.addAnnotation({ value: mark.cfiRange, color: mark.color || "#ffe08a" });
+        await host.addAnnotation({ value: mark.cfiRange, color: hlName(mark.color) });
       } catch (err) {
         console.warn("恢复高亮失败", err);
       }
@@ -1051,14 +1080,16 @@
     const bar = $("selectionBar");
     if (!bar) return;
     bar.querySelectorAll(".swatch").forEach((node) => {
-      node.addEventListener("click", () => highlightSelection(node.dataset.color || "#ffe08a", ""));
+      node.addEventListener("click", () =>
+        highlightSelection(node.dataset.color || activeHighlightName(), "")
+      );
     });
     const noteBtn = $("noteBtn");
     if (noteBtn) {
       noteBtn.addEventListener("click", () => {
         const text = STATE.selection && STATE.selection.text ? STATE.selection.text : "";
         const note = bridge() ? bridge().askNote(text) : "";
-        if (note) highlightSelection("#ffe08a", note);
+        if (note) highlightSelection(activeHighlightName(), note);
       });
     }
     const copyBtn = $("copyBtn");

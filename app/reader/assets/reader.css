@@ -7,9 +7,24 @@
   --chrome: #f3f1ec;
   --border: #ddd8cd;
   --accent: #3f6fa8;
+  /* 高亮荧光笔 4 色：浅色纸面默认值，夜间由 [data-paper="night"] 覆盖（T13）。 */
+  --hl-blue: #cfe3f3;
+  --hl-amber: #f5d9a8;
+  --hl-green: #d8e8c2;
+  --hl-pink: #eccfd8;
+  --hl: var(--hl-blue);
   /* 正文字体：西文走拉丁字体、中文回落 CJK（CJK 在前会让英文套用中文字形的西文部分）。 */
   --reader-font-cjk: "LXGW WenKai";
   --reader-font-latin: "Literata";
+}
+
+/* 夜间纸面：高亮色自动压暗（决策回复 §二）。data-paper 由 reader.js 写入。 */
+html[data-paper="night"] {
+  --hl-blue: #2c4257;
+  --hl-amber: #4a3b22;
+  --hl-green: #31412a;
+  --hl-pink: #45303a;
+  --hl-ink: #cfe3f3;
 }
 
 html, body {
@@ -294,6 +309,19 @@ body.pdf-mode #viewer {
   padding: 0;
 }
 
+#selectionBar .swatch[data-color="blue"] {
+  background: var(--hl-blue);
+}
+#selectionBar .swatch[data-color="amber"] {
+  background: var(--hl-amber);
+}
+#selectionBar .swatch[data-color="green"] {
+  background: var(--hl-green);
+}
+#selectionBar .swatch[data-color="pink"] {
+  background: var(--hl-pink);
+}
+
 #selectionBar button {
   border: 0;
   background: transparent;
@@ -325,7 +353,7 @@ body.pdf-mode #viewer {
 }
 
 .epub-highlight {
-  fill: #ffe08a;
+  fill: var(--hl);
   fill-opacity: 0.42;
 }
 

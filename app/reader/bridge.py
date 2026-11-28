@@ -87,12 +87,14 @@ class ReaderBridge(QObject):
         self, book_id: int, locator_json: str, color: str, text: str, note: str
     ) -> int:
         try:
+            from ..ui.theme_tokens import normalize_highlight_name
+
             highlight_id = self.repo.add_bookmark(
                 int(book_id),
                 str(locator_json),
                 text=text or None,
                 note=note or None,
-                color=color or "#ffe08a",
+                color=normalize_highlight_name(color),
                 kind="highlight",
             )
         except Exception as exc:
