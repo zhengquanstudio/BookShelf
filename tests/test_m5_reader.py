@@ -335,7 +335,7 @@ def test_container_opens_epub_and_cycles_theme(qapp, db, tmp_path, settings):
     reader._cycle_theme()
     assert settings.data["reader"]["theme"] == "sepia"
     reader._change_font(1)
-    assert settings.data["reader"]["font_size"] == 20
+    assert settings.data["reader"]["font_size"] == 18
     reader.close_book()
 
 

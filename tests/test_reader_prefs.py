@@ -35,14 +35,15 @@ def reader(qapp, db, settings):
 def test_reader_prefs_defaults(reader):
     prefs = reader._reader_prefs()
     assert prefs["theme"] == "light"
-    assert prefs["font_size"] == 19
-    assert prefs["line_height"] == pytest.approx(1.90)
+    assert prefs["font_size"] == 17
+    assert prefs["line_height"] == pytest.approx(1.95)
     assert prefs["font_weight"] == 400
     assert prefs["para_spacing"] == pytest.approx(0.75)
     assert prefs["indent"] is True and prefs["justify"] is True
     assert prefs["hyphens"] is False
-    assert (prefs["margin_top"], prefs["margin_bottom"]) == (48, 48)
-    assert (prefs["margin_left"], prefs["margin_right"]) == (56, 56)
+    assert (prefs["margin_top"], prefs["margin_bottom"]) == (54, 54)
+    assert (prefs["margin_left"], prefs["margin_right"]) == (54, 54)
+    assert prefs["fixed_page_width"] is True
     assert prefs["column_count"] == 1
     assert prefs["max_column_width"] == 920
     assert prefs["turn_style"] == "push"
@@ -66,8 +67,8 @@ def test_reader_prefs_clamp_invalid_values(reader, settings):
         }
     )
     prefs = reader._reader_prefs()
-    assert prefs["font_size"] == 40
-    assert prefs["line_height"] == pytest.approx(3.0)
+    assert prefs["font_size"] == 32
+    assert prefs["line_height"] == pytest.approx(2.5)
     assert prefs["margin_left"] == 0
     assert prefs["column_count"] == 1
     assert prefs["max_column_width"] == 520
@@ -99,7 +100,7 @@ def test_per_book_override_applies_only_to_that_book(reader, settings):
     assert override["turn_style"] == "flip"
 
     reader._book_id = 8
-    assert reader._reader_prefs()["font_size"] == 19
+    assert reader._reader_prefs()["font_size"] == 17
     assert reader._reader_prefs()["turn_style"] == "push"
 
 
@@ -120,7 +121,7 @@ def test_reset_prefs_restores_appearance_but_keeps_books(reader, settings):
     )
     reader._reset_prefs()
     reader_data = settings.data["reader"]
-    assert reader_data["font_size"] == 19
+    assert reader_data["font_size"] == 17
     assert reader_data["theme"] == "light"
     assert "margin_px" not in reader_data
     assert reader_data["books"] == {"3": {"font_size": 33}}

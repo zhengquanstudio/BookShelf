@@ -147,7 +147,7 @@ def test_bottom_bar_info_clock_and_remaining(reader, db, tmp_path):
     assert isinstance(reader.progress, InkDotProgress)
     assert reader.battery.width() == 20
     assert reader.page_input.objectName() == "ReaderPageInput"
-    assert reader.font_stepper.value() == 19
+    assert reader.font_stepper.value() == 17
     assert re.match(r"^\d{2}:\d{2}$", reader.clock_label.text())
 
     # 没有阅读统计时只显示破折号。

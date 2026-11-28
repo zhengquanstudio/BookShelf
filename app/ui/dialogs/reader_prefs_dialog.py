@@ -432,7 +432,7 @@ class ReaderPrefsDialog(QDialog):
 
         layout.addWidget(self._section("字号"))
         card = self._card()
-        self._row(card, "默认字号", self._stepper("font_size", 19, 10, 40, 1))
+        self._row(card, "默认字号", self._stepper("font_size", 17, 12, 32, 1))
         self._row(card, "最小字号", self._stepper("min_font_size", 8, 6, 14, 1))
         self._row(card, "正文字重", self._stepper("font_weight", 400, 100, 900, 100))
         layout.addWidget(card)
@@ -480,7 +480,7 @@ class ReaderPrefsDialog(QDialog):
         card = self._card()
         self._row(card, "使用书籍排版", self._toggle("use_book_layout", False))
         self._row(card, "段间距", self._stepper("para_spacing", 0.75, 0, 3, 0.05, 2))
-        self._row(card, "行间距", self._stepper("line_height", 1.9, 1, 3, 0.05, 2))
+        self._row(card, "行间距", self._stepper("line_height", 1.95, 1.2, 2.5, 0.05, 2))
         self._row(card, "字间距", self._stepper("letter_spacing", 0, -2, 8, 0.1, 1))
         self._row(card, "首行缩进", self._stepper("indent", 2, 0, 4, 0.5, 1))
         self._row(card, "两端对齐", self._toggle("justify", True))
@@ -489,10 +489,10 @@ class ReaderPrefsDialog(QDialog):
 
         layout.addWidget(self._section("页面"))
         card = self._card()
-        self._row(card, "上边距", self._stepper("margin_top", 48, 0, 240, 2))
-        self._row(card, "下边距", self._stepper("margin_bottom", 48, 0, 240, 2))
-        self._row(card, "左边距", self._stepper("margin_left", 56, 0, 240, 2))
-        self._row(card, "右边距", self._stepper("margin_right", 56, 0, 240, 2))
+        self._row(card, "上边距", self._stepper("margin_top", 54, 0, 96, 2))
+        self._row(card, "下边距", self._stepper("margin_bottom", 54, 0, 96, 2))
+        self._row(card, "左边距", self._stepper("margin_left", 54, 0, 96, 2))
+        self._row(card, "右边距", self._stepper("margin_right", 54, 0, 96, 2))
         self._row(card, "页宽固定（文字重排不拉长书页）",
                  self._toggle("fixed_page_width", True))
         layout.addWidget(card)

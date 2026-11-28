@@ -2646,21 +2646,22 @@ class ReaderContainer(QWidget):
             "reader_font_latin": str(
                 data.get("reader_font_latin") or _default_font_family("English", "Literata")
             ),
-            "font_size": min(40, max(10, _as_int(data.get("font_size"), 19))),
-            "line_height": min(3.0, max(1.0, _as_float(data.get("line_height"), 1.9))),
+            "font_size": min(32, max(12, _as_int(data.get("font_size"), 17))),
+            "line_height": min(2.5, max(1.2, _as_float(data.get("line_height"), 1.95))),
             "font_weight": weight if weight in _FONT_WEIGHTS else 400,
             "para_spacing": min(3.0, max(0.0, _as_float(data.get("para_spacing"), 0.75))),
             "indent": _as_bool(data.get("indent"), True),
             "justify": _as_bool(data.get("justify"), True),
             "hyphens": _as_bool(data.get("hyphens"), False),
-            "margin_top": min(240, max(0, _as_int(data.get("margin_top"), legacy))),
-            "margin_bottom": min(240, max(0, _as_int(data.get("margin_bottom"), legacy))),
-            "margin_left": min(240, max(0, _as_int(data.get("margin_left"), legacy))),
-            "margin_right": min(240, max(0, _as_int(data.get("margin_right"), legacy))),
+            "margin_top": min(96, max(0, _as_int(data.get("margin_top"), legacy))),
+            "margin_bottom": min(96, max(0, _as_int(data.get("margin_bottom"), legacy))),
+            "margin_left": min(96, max(0, _as_int(data.get("margin_left"), legacy))),
+            "margin_right": min(96, max(0, _as_int(data.get("margin_right"), legacy))),
             "margin_px": legacy,
             "column_count": 2 if _as_int(data.get("column_count"), 1) == 2 else 1,
             "page_mode": "spread" if str(data.get("page_mode")) == "spread" else "single",
             "page_width": min(900, max(420, _as_int(data.get("page_width"), 560))),
+            "fixed_page_width": _as_bool(data.get("fixed_page_width"), True),
             "disable_double_click": _as_bool(data.get("disable_double_click"), False),
             "auto_turn_sec": min(120, max(0, _as_int(data.get("auto_turn_sec"), 0))),
             "reading_ruler": _as_bool(data.get("reading_ruler"), False),
@@ -2821,7 +2822,7 @@ class ReaderContainer(QWidget):
             combo.setCurrentIndex(index)
 
     def _change_font(self, delta: int) -> None:
-        size = max(10, min(40, self._reader_prefs()["font_size"] + delta))
+        size = max(12, min(32, self._reader_prefs()["font_size"] + delta))
         self._update_prefs(font_size=size)
 
     def _cycle_theme(self) -> None:
