@@ -601,6 +601,7 @@ class ReaderContainer(QWidget):
         self._clock_24h = True
         self._syncing = False
         self._open_serial = 0
+        self._pending_locator: str | None = None
         self._loading_stage = ""
         self._prepare_pool = QThreadPool(self)
         self._prepare_pool.setMaxThreadCount(1)
@@ -1456,6 +1457,7 @@ class ReaderContainer(QWidget):
         self.flush()
         self._end_session()
         self._open_serial += 1
+        self._pending_locator = None
         serial = self._open_serial
         self._slow_timer.stop()
         self._render_watchdog.stop()
@@ -1568,6 +1570,7 @@ class ReaderContainer(QWidget):
         self._hide_loading_overlay()
         self.stack.setCurrentWidget(self.web)
         self._ensure_session()
+        self._apply_pending_locator()
 
     def _on_render_timeout(self) -> None:
         if self.loading_overlay.isHidden():
@@ -2449,24 +2452,36 @@ class ReaderContainer(QWidget):
             self.repo.delete_bookmark(note_id)
         self._refresh_notes()
 
-    def _jump_bookmark(self, item: QListWidgetItem) -> None:
-        if not self._web_enabled:
+    def go_to_locator(self, locator_json: str) -> None:
+        """打开笔记位置；书未渲染完时暂存，完成后仍走原 go_to 接口。"""
+        self._pending_locator = str(locator_json or "")
+        self._apply_pending_locator()
+
+    def _apply_pending_locator(self) -> None:
+        raw = self._pending_locator
+        if not raw or not self._web_enabled or not self.loading_overlay.isHidden():
             return
-        raw = str(item.data(Qt.UserRole + 1) or "")
+        target = self._locator_target(raw)
+        self._pending_locator = None
+        if target is not None:
+            self.web.go_to(target)
+
+    @staticmethod
+    def _locator_target(locator_json: str) -> str | dict[str, int] | None:
         try:
-            locator = json.loads(raw)
+            locator = json.loads(locator_json)
         except ValueError:
-            return
+            return None
         if not isinstance(locator, dict):
-            return
+            return None
         if locator.get("type") == "pdf":
             page = int(locator.get("page") or 0)
-            if page > 0:
-                self.web.go_to({"page": page})
-        else:
-            target = locator.get("cfi") or locator.get("href")
-            if target:
-                self.web.go_to(str(target))
+            return {"page": page} if page > 0 else None
+        target = locator.get("cfi") or locator.get("href")
+        return str(target) if target else None
+
+    def _jump_bookmark(self, item: QListWidgetItem) -> None:
+        self.go_to_locator(str(item.data(Qt.UserRole + 1) or ""))
 
     def _delete_bookmark(self) -> None:
         item = self.bookmark_list.currentItem()

@@ -1086,3 +1086,55 @@ QLineEdit:focus, QTextEdit:focus {
     font-weight: 600;
 }
 
+/* ---- T22 笔记 / 高亮 / 书签 ---- */
+#NotesTree {
+    background: transparent;
+    border: none;
+    outline: none;
+}
+
+#NotesTree::item {
+    color: #d6d9df;
+    padding: 5px 2px;
+}
+
+#NoteRow {
+    background: #1f2125;
+    border: 1px solid #33383f;
+    border-left: 3px solid #4f8cf7;
+    border-radius: 9px;
+}
+
+#NoteText {
+    color: #e7e9ee;
+    font-size: 12.5px;
+}
+
+#NoteComment {
+    color: #d6d9df;
+    background: #25282d;
+    border-radius: 5px;
+    padding: 5px 7px;
+}
+
+#NoteMeta {
+    color: #6f7681;
+    font-size: 10.5px;
+}
+
+#NotesEmpty {
+    background: #1b1d21;
+    border: 1px solid #33383f;
+    border-radius: 12px;
+}
+
+#NotesEmptySkeleton {
+    color: #4a515a;
+    background: #25282d;
+    border: 1px dashed #3a4048;
+    border-radius: 12px;
+    font-size: 50px;
+    min-height: 120px;
+    max-height: 120px;
+}
+

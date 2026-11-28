@@ -55,6 +55,7 @@ from .pages.help_page import HelpPage
 from .pages.shelf_page import ShelfPage
 from .pages.stats_page import StatsPage
 from .pages.library_page import EmptyLibraryPage, SampleLibraryDialog
+from .pages.notes_page import NotesPage
 from .pages.reader_container import open_with_system
 from .reader_window import ReaderWindow
 from .theme import load_stylesheet, ui_colors
@@ -467,7 +468,13 @@ class MainWindow(QMainWindow):
         self.shelf_page.go_library_requested.connect(self._go_library_from_shelf)
         self.shelf_page.query_changed.connect(self._on_shelf_query)
         self.stats_page = StatsPage(self.db)
-        self.stats_page.go_shelf_requested.connect(self._go_shelf_from_stats)
+        self.stats_page.go_shelf_requested.connect(self._go_shelf)
+        self.notes_page = NotesPage(self.db)
+        self.notes_page.open_locator_requested.connect(self._open_book_at_locator)
+        self.notes_page.go_shelf_requested.connect(self._go_shelf)
+        self.notes_page.toast_requested.connect(
+            lambda message: self.statusBar().showMessage(message, 5000)
+        )
         self._reader_windows: dict[int, ReaderWindow] = {}
 
         self.content_stack = QStackedWidget()
@@ -477,6 +484,7 @@ class MainWindow(QMainWindow):
         self.content_stack.addWidget(self.help_page)
         self.content_stack.addWidget(self.shelf_page)
         self.content_stack.addWidget(self.stats_page)
+        self.content_stack.addWidget(self.notes_page)
 
         self.body_splitter = QSplitter(Qt.Horizontal)
         self.body_splitter.setObjectName("BodySplitter")
@@ -619,6 +627,7 @@ class MainWindow(QMainWindow):
         self._cell_delegate.set_theme(theme_name, accent_name)
         self.shelf_page.set_theme(theme_name, accent_name)
         self.stats_page.set_theme(theme_name, accent_name)
+        self.notes_page.set_theme(theme_name, accent_name)
         self.table.viewport().update()
         self.detail.set_theme(theme_name, accent_name)
         self._position_batch_bar()
@@ -666,6 +675,8 @@ class MainWindow(QMainWindow):
             self.shelf_page.refresh()
         if self.content_stack.currentWidget() is self.stats_page:
             self.stats_page.refresh()
+        if self.content_stack.currentWidget() is self.notes_page:
+            self.notes_page.refresh()
 
     def _query_library_page(self, page: int) -> tuple[list[dict[str, Any]], int]:
         return self.library.query_books(
@@ -1116,7 +1127,9 @@ class MainWindow(QMainWindow):
     def _open_book_by_id(self, book_id: int) -> None:
         self._open_book_id(book_id)
 
-    def _open_book_id(self, book_id: int) -> None:
+    def _open_book_id(
+        self, book_id: int, *, locator_json: str | None = None, force_internal: bool = False
+    ) -> None:
         row = self.db.query_one(
             "SELECT title, file_path FROM books WHERE id = ?", (book_id,)
         )
@@ -1125,7 +1138,7 @@ class MainWindow(QMainWindow):
             return
 
         mode = str((self.settings.data.get("reader") or {}).get("open_mode") or "window")
-        if mode == "external":
+        if mode == "external" and not force_internal:
             error = open_with_system(str(row["file_path"]))
             if error:
                 QMessageBox.warning(self, "打开书籍", error)
@@ -1136,6 +1149,8 @@ class MainWindow(QMainWindow):
             existing.showNormal()
             existing.raise_()
             existing.activateWindow()
+            if locator_json:
+                existing.reader.go_to_locator(locator_json)
             return
 
         title = str(row["title"] or Path(str(row["file_path"])).stem)
@@ -1145,9 +1160,14 @@ class MainWindow(QMainWindow):
         window.destroyed.connect(lambda *_: self._reader_windows.pop(book_id, None))
         window.book_changed.connect(self.refresh_library)
         self._reader_windows[book_id] = window
+        if locator_json:
+            window.reader.go_to_locator(locator_json)
         window.show()
         window.raise_()
         window.activateWindow()
+
+    def _open_book_at_locator(self, book_id: int, locator_json: str) -> None:
+        self._open_book_id(book_id, locator_json=locator_json, force_internal=True)
 
     def open_paths(self, paths: list[str]) -> bool:
         """处理资源管理器双击/右键打开请求：已在库中的路径直接打开阅读窗口。"""
@@ -1179,7 +1199,7 @@ class MainWindow(QMainWindow):
             self.open_scan_dialog()
         return False
 
-    def _go_shelf_from_stats(self) -> None:
+    def _go_shelf(self) -> None:
         self.nav.set_current_silent("shelf")
         self._on_nav("shelf")
 
@@ -1342,6 +1362,11 @@ class MainWindow(QMainWindow):
             self.content_stack.setCurrentWidget(self.stats_page)
             self.vertical.widget(1).setVisible(False)
             self.stats_page.refresh()
+        elif key == "notes":
+            self._nav_display_key = "notes"
+            self.content_stack.setCurrentWidget(self.notes_page)
+            self.vertical.widget(1).setVisible(False)
+            self.notes_page.refresh()
         elif key in {"authors", "series"}:
             self.content_stack.setCurrentWidget(self.author_page)
             self.vertical.widget(1).setVisible(True)

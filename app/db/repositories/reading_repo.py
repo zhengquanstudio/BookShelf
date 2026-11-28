@@ -180,6 +180,30 @@ class ReadingRepository:
             "SELECT * FROM bookmarks WHERE book_id = ? ORDER BY id", (book_id,)
         )
 
+    def list_annotations(self, category: str, *, search: str = "") -> list[dict[str, Any]]:
+        """笔记页互斥分类：带想法的高亮属于笔记，无想法高亮属于高亮。"""
+        clauses = {
+            "note": "(bm.kind = 'note' OR (bm.kind = 'highlight' AND TRIM(IFNULL(bm.note, '')) <> ''))",
+            "highlight": "(bm.kind = 'highlight' AND TRIM(IFNULL(bm.note, '')) = '')",
+            "bookmark": "bm.kind = 'bookmark'",
+        }
+        where = clauses.get(category)
+        if where is None:
+            raise ValueError(f"未知笔记分类：{category!r}")
+        params: list[Any] = []
+        keyword = str(search or "").strip()
+        if keyword:
+            where += " AND (bm.text LIKE ? OR bm.note LIKE ?)"
+            like = f"%{keyword}%"
+            params.extend([like, like])
+        rows = self.db.query(
+            "SELECT bm.*, COALESCE(NULLIF(books.title, ''), '未命名') AS book_title "
+            "FROM bookmarks AS bm JOIN books ON books.id = bm.book_id "
+            f"WHERE {where} ORDER BY bm.created_at DESC, bm.id DESC",
+            tuple(params),
+        )
+        return [dict(row) for row in rows]
+
     def delete_bookmark(self, bookmark_id: int) -> int:
         with self.db.transaction() as conn:
             cur = conn.execute("DELETE FROM bookmarks WHERE id = ?", (bookmark_id,))
