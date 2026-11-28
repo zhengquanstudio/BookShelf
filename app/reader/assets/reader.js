@@ -147,6 +147,70 @@
     const bar = $("selectionBar");
     if (!bar) return;
     bar.classList.remove("hidden");
+    syncHighlightDot();
+    positionSelectionBar();
+  }
+
+  /** 让浮条里的「高亮」色点反映当前选中的高亮色（纸面明暗自动适配）。 */
+  function syncHighlightDot() {
+    const dot = $("hlDot");
+    if (!dot) return;
+    try {
+      dot.style.background = hlColor(activeHighlightName());
+    } catch (err) {
+      dot.style.background = "var(--hl)";
+    }
+  }
+
+  /** 把选中浮条定位到选区上方 44px；上方空间不足时落到选区下方。
+   *  epub 选区在 iframe 内，需把 iframe 偏移叠加到主文档坐标。 */
+  function positionSelectionBar() {
+    const bar = $("selectionBar");
+    if (!bar) return;
+    let rect = null;
+    try {
+      const doc = STATE.selection && STATE.selection.doc;
+      const sel = doc
+        ? doc.getSelection
+          ? doc.getSelection()
+          : null
+        : window.getSelection
+        ? window.getSelection()
+        : null;
+      if (sel && sel.rangeCount) {
+        const r = sel.getRangeAt(0).getBoundingClientRect();
+        const iframe = doc && doc.defaultView ? doc.defaultView.frameElement : null;
+        if (iframe) {
+          const f = iframe.getBoundingClientRect();
+          rect = {
+            left: r.left + f.left,
+            top: r.top + f.top,
+            bottom: r.bottom + f.top,
+            width: r.width,
+            height: r.height,
+          };
+        } else {
+          rect = { left: r.left, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+        }
+      }
+    } catch (err) {
+      rect = null;
+    }
+    bar.style.visibility = "hidden";
+    const bw = bar.offsetWidth || 220;
+    const bh = bar.offsetHeight || 36;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let left = rect ? rect.left + rect.width / 2 - bw / 2 : vw / 2 - bw / 2;
+    left = Math.max(8, Math.min(vw - bw - 8, left));
+    let top = rect ? rect.top - bh - 44 : 80;
+    if (top < 8) top = rect ? rect.bottom + 44 : 80;
+    if (top + bh > vh - 8) top = Math.max(8, vh - bh - 8);
+    bar.style.left = left + "px";
+    bar.style.top = top + "px";
+    bar.style.bottom = "auto";
+    bar.style.transform = "none";
+    bar.style.visibility = "visible";
   }
 
   function hideSelection() {
@@ -1079,17 +1143,20 @@
   function bindSelectionBar() {
     const bar = $("selectionBar");
     if (!bar) return;
-    bar.querySelectorAll(".swatch").forEach((node) => {
-      node.addEventListener("click", () =>
-        highlightSelection(node.dataset.color || activeHighlightName(), "")
-      );
-    });
+    const hlBtn = $("hlBtn");
+    if (hlBtn) {
+      hlBtn.addEventListener("click", () => {
+        highlightSelection(activeHighlightName(), "");
+        hideSelection();
+      });
+    }
     const noteBtn = $("noteBtn");
     if (noteBtn) {
       noteBtn.addEventListener("click", () => {
         const text = STATE.selection && STATE.selection.text ? STATE.selection.text : "";
         const note = bridge() ? bridge().askNote(text) : "";
         if (note) highlightSelection(activeHighlightName(), note);
+        hideSelection();
       });
     }
     const copyBtn = $("copyBtn");
@@ -1099,6 +1166,36 @@
         if (text && bridge()) bridge().copyText(text);
         hideSelection();
       });
+    }
+    const readBtn = $("readBtn");
+    if (readBtn) {
+      readBtn.addEventListener("click", () => {
+        startReadAloud();
+        hideSelection();
+      });
+    }
+  }
+
+  /** 朗读选中文字：优先 foliate 内建 TTS，回落 Web Speech API。 */
+  function startReadAloud() {
+    const text = STATE.selection && STATE.selection.text ? STATE.selection.text : "";
+    if (!text) return;
+    const foliate = STATE.foliate;
+    if (foliate && typeof foliate.startReadAloud === "function") {
+      try {
+        foliate.startReadAloud();
+        return;
+      } catch (err) {
+        /* fall through to Web Speech */
+      }
+    }
+    if ("speechSynthesis" in window && "SpeechSynthesisUtterance" in window) {
+      try {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+      } catch (err) {
+        /* no-op */
+      }
     }
   }
 

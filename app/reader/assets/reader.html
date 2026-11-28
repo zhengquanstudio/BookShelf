@@ -33,15 +33,12 @@
   </div>
 </div>
 
+<!-- 选中浮条（T15）：高亮 / 写批注 / 复制 / 朗读，浮在选区上方 44px。 -->
 <div id="selectionBar" class="hidden">
-  <span class="hint">高亮</span>
-  <button class="swatch" data-color="blue" title="蓝色"></button>
-  <button class="swatch" data-color="amber" title="琥珀"></button>
-  <button class="swatch" data-color="green" title="绿色"></button>
-  <button class="swatch" data-color="pink" title="粉色"></button>
-  <span class="divider"></span>
-  <button id="noteBtn">笔记</button>
+  <button id="hlBtn"><span class="hldot" id="hlDot"></span>高亮</button>
+  <button id="noteBtn">写批注</button>
   <button id="copyBtn">复制</button>
+  <button id="readBtn">朗读</button>
 </div>
 
 <div id="loading">正在加载…</div>
