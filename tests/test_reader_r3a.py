@@ -133,12 +133,12 @@ def test_r3a_book_tags_query(reader, db, tmp_path):
 def test_r3a_all_detail_entries_toggle(reader):
     reader._book_id = 1
     reader._book = _book_dict()
-    reader.info_button.click()
+    reader.cover_card.info_button.click()
     assert not reader.detail_panel.isHidden()
-    reader.info_button.click()
+    reader.cover_card.info_button.click()
     assert reader.detail_panel.isHidden()
 
-    reader.cover_label.clicked.emit()
+    reader.title_label.clicked.emit()
     assert not reader.detail_panel.isHidden()
     reader.title_label.clicked.emit()
     assert reader.detail_panel.isHidden()

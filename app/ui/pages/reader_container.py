@@ -332,9 +332,8 @@ def _reader_qss(theme: ReaderPalette) -> str:
     #ReaderTopBar, #ReaderBottomBar {{ background: {theme.chrome}; border: 0; }}
     #ReaderTopBar {{ border-bottom: 1px solid {theme.border}; }}
     #ReaderBottomBar {{ border-top: 1px solid {theme.border}; }}
-    #ReaderCover {{ background: {theme.panel}; border: 1px solid {theme.border}; border-radius: 3px; }}
-    #ReaderTitle {{ color: {theme.ink}; font-size: 13.5px; font-weight: 600; background: transparent; }}
-    #ReaderSub {{ color: {theme.muted}; font-size: 10.5px; background: transparent; }}
+    #ReaderTopTitle {{ color: {theme.ink}; font-size: 13px; font-weight: 600; background: transparent; }}
+    #ReaderTopBook {{ color: {theme.muted}; font-size: 11px; background: transparent; }}
     #ReaderTocMeta, #ReaderPageLabel, #ReaderRemaining, #ReaderClock, #ReaderSearchCount,
     #ReaderSectionTitle, #ReaderPrefsLabel {{ color: {theme.muted}; background: transparent; }}
     #ReaderPercent {{ color: {theme.ink}; background: transparent; font-weight: 600; }}
@@ -601,7 +600,7 @@ class ReaderContainer(QWidget):
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
         # 顶底栏使用绝对定位；预留区域在显隐时保持不变，正文不会跳动。
-        root.setContentsMargins(0, 52, 0, 40)
+        root.setContentsMargins(0, 46, 0, 40)
         root.setSpacing(0)
         self.topbar = self._build_topbar()
         self.topbar.setParent(self)
@@ -666,10 +665,10 @@ class ReaderContainer(QWidget):
     def _build_topbar(self) -> QWidget:
         bar = QFrame()
         bar.setObjectName("ReaderTopBar")
-        bar.setFixedHeight(52)
+        bar.setFixedHeight(46)
         layout = QHBoxLayout(bar)
-        layout.setContentsMargins(12, 0, 12, 0)
-        layout.setSpacing(7)
+        layout.setContentsMargins(10, 0, 10, 0)
+        layout.setSpacing(6)
 
         self.toc_button = self._make_icon(
             "toc", "显示/隐藏目录（Ctrl+B）", checkable=True, checked=True, size=30
@@ -677,53 +676,36 @@ class ReaderContainer(QWidget):
         self.toc_button.clicked.connect(self._toggle_toc)
         layout.addWidget(self.toc_button)
 
-        self.cover_label = _ClickableLabel()
-        self.cover_label.setObjectName("ReaderCover")
-        self.cover_label.setFixedSize(26, 36)
-        self.cover_label.setAlignment(Qt.AlignCenter)
-        self.cover_label.setCursor(Qt.PointingHandCursor)
-        self.cover_label.setToolTip("打开书籍详情")
-        self.cover_label.clicked.connect(self._show_book_detail)
-        layout.addWidget(self.cover_label)
-
-        title_box = QVBoxLayout()
-        title_box.setContentsMargins(0, 0, 0, 0)
-        title_box.setSpacing(0)
+        # 章节名（醒目） + 书名（灰）；点击章节名打开书籍详情。
         self.title_label = _ClickableLabel("未打开书籍")
-        self.title_label.setObjectName("ReaderTitle")
+        self.title_label.setObjectName("ReaderTopTitle")
         self.title_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         self.title_label.setCursor(Qt.PointingHandCursor)
         self.title_label.clicked.connect(self._show_book_detail)
-        title_box.addWidget(self.title_label, 0, Qt.AlignVCenter)
-        self.author_label = QLabel("")
-        self.author_label.setObjectName("ReaderSub")
-        self.author_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
-        title_box.addWidget(self.author_label, 0, Qt.AlignVCenter)
-        layout.addLayout(title_box, 1)
+        layout.addWidget(self.title_label, 1)
 
-        self.info_button = self._make_icon("info", "书籍详情", size=28)
-        self.info_button.clicked.connect(self._show_book_detail)
-        layout.addWidget(self.info_button)
+        self.book_label = QLabel("")
+        self.book_label.setObjectName("ReaderTopBook")
+        self.book_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        layout.addWidget(self.book_label, 1)
+
         layout.addStretch(1)
 
-        self.search_button = self._make_icon("search", "搜索正文（Ctrl+F）", size=30)
-        self.search_button.clicked.connect(self.toggle_search)
-        layout.addWidget(self.search_button)
+        # 右侧 5 图标：书签 / 搜索 / 字体排版 / 笔记 / 更多。
         self.bookmark_button = self._make_icon(
             "bookmark", "书签", checkable=True, size=30
         )
         self.bookmark_button.clicked.connect(self._toggle_bookmarks)
         layout.addWidget(self.bookmark_button)
+        self.search_button = self._make_icon("search", "搜索正文（Ctrl+F）", size=30)
+        self.search_button.clicked.connect(self.toggle_search)
+        layout.addWidget(self.search_button)
         self.aa_button = self._make_icon("aa", "阅读设置：字体、版面、主题", size=30)
         self.aa_button.clicked.connect(self._show_prefs)
         layout.addWidget(self.aa_button)
         self.note_button = self._make_icon("note", "笔记", size=30)
         self.note_button.clicked.connect(lambda: self._select_sidebar_tab(1))
         layout.addWidget(self.note_button)
-        self.pin_button = self._make_icon(
-            "pin", "固定侧栏", checkable=True, checked=True, size=30
-        )
-        layout.addWidget(self.pin_button)
         self.more_button = self._make_icon("more", "更多", size=30)
         self.more_menu = QMenu(self.more_button)
         self.more_menu.addAction("全屏（F11）", self._toggle_fullscreen)
@@ -1596,8 +1578,7 @@ class ReaderContainer(QWidget):
         return pix
 
     def _render_cover_thumb(self) -> None:
-        """顶栏 26×36 竖封面 + 侧栏封面卡 56×78。"""
-        self.cover_label.setPixmap(self._make_cover_pixmap(26, 36))
+        """侧栏封面卡 56×78（顶栏封面已移至侧栏卡）。"""
         if hasattr(self, "cover_card"):
             self.cover_card.set_book(self._book or {})
             self.cover_card.set_cover_pixmap(self._make_cover_pixmap(56, 78))
@@ -1655,8 +1636,8 @@ class ReaderContainer(QWidget):
 
     def _position_book_detail(self) -> None:
         self.detail_panel.adjustSize()
-        anchor = self.info_button.mapTo(self, QPoint(0, self.info_button.height() + 6))
-        x = anchor.x() + self.info_button.width() - self.detail_panel.width()
+        anchor = self.more_button.mapTo(self, QPoint(0, self.more_button.height() + 6))
+        x = anchor.x() + self.more_button.width() - self.detail_panel.width()
         x = max(8, min(x, self.width() - self.detail_panel.width() - 8))
         available = max(280, self.height() - anchor.y() - 48)
         self.detail_panel.setMaximumHeight(min(600, available))
@@ -1959,15 +1940,20 @@ class ReaderContainer(QWidget):
         self._reload_current_book()
 
     def _update_header(self) -> None:
-        chapter = str(self._location.get("label") or "")
         title = self._display_title()
+        # 章节标题优先取 location.title，其次 label；封面/书名页不当作章节名。
+        chapter = str(
+            self._location.get("title") or self._location.get("label") or ""
+        ).strip()
+        if chapter.lower() in {
+            "封面", "封面页", "书名页", "cover", "title page", "titlepage",
+        }:
+            chapter = ""
+        self._header_chapter = chapter
+        self._header_book = title
         self._title_full = f"{title} · {chapter}" if chapter else title
         self._elide_title()
 
-        # R1：顶栏第二行固定展示作者；格式保留在悬停信息中。
-        author = self._display_author() if self._book else ""
-        fmt = str(self._book.get("format") or "").upper()
-        self.author_label.setText(author)
         self.favorite_button.blockSignals(True)
         self.favorite_button.setChecked(bool(self._book.get("favorite")))
         self.favorite_button.blockSignals(False)
@@ -1976,6 +1962,8 @@ class ReaderContainer(QWidget):
         if hasattr(self, "cover_card"):
             self.cover_card.set_progress(float(self._location.get("percent") or 0))
 
+        author = self._display_author() if self._book else ""
+        fmt = str(self._book.get("format") or "").upper()
         parts = [part for part in (author, fmt) if part]
         progress = self.repo.get_progress(self._book_id) if self._book_id else None
         seconds = int(progress["total_seconds"] or 0) if progress else 0
@@ -1984,13 +1972,27 @@ class ReaderContainer(QWidget):
         self.topbar.setToolTip(" · ".join(item for item in parts if item))
 
     def _elide_title(self) -> None:
-        """顶栏只放一行书名，宽度不足时右侧省略。"""
-        text = self._title_full or "未打开书籍"
-        width = max(40, self.title_label.width() - 4)
+        """顶栏：章节名醒目 + 书名（灰）；宽度不足时各自省略。"""
+        book = getattr(self, "_header_book", "")
+        if not book:
+            book = (
+                self._display_title() if getattr(self, "_book", None) else "未打开书籍"
+            )
+        chapter = getattr(self, "_header_chapter", "") or book
         self.title_label.setText(
-            self.title_label.fontMetrics().elidedText(text, Qt.ElideRight, width)
+            self.title_label.fontMetrics().elidedText(
+                chapter, Qt.ElideRight, max(40, self.title_label.width() - 4)
+            )
         )
-        self.title_label.setToolTip(text)
+        show_book = bool(getattr(self, "_book", None)) and chapter != book
+        self.book_label.setVisible(show_book)
+        if show_book:
+            self.book_label.setText(
+                self.book_label.fontMetrics().elidedText(
+                    book, Qt.ElideRight, max(40, self.book_label.width() - 4)
+                )
+            )
+        self.title_label.setToolTip(self._title_full or book)
 
     def _mark_drm(self) -> None:
         if not self._book_id:
@@ -2899,7 +2901,9 @@ class ReaderContainer(QWidget):
 
     def _position_chrome(self) -> None:
         targets = self._chrome_targets(getattr(self, "_chrome_visible", True))
-        self.topbar.setGeometry(0, targets["top"].y(), self.width(), 52)
+        self.topbar.setGeometry(
+            0, targets["top"].y(), self.width(), self.topbar.height()
+        )
         self.bottombar.setGeometry(
             0, targets["bottom"].y(), self.width(), self.bottombar.height()
         )

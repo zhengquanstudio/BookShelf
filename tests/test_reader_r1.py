@@ -43,15 +43,17 @@ def _loaded_reader(reader):
 
 
 def test_r1_topbar_matches_prototype(reader):
-    assert reader.topbar.minimumHeight() == 52
-    assert reader.topbar.maximumHeight() == 52
-    assert reader.cover_label.width() == 26
-    assert reader.cover_label.height() == 36
-    assert reader.author_label.objectName() == "ReaderSub"
+    # T11：顶栏 46px，左为侧栏开关 + 章节名 + 书名（灰），右为 5 图标。
+    assert reader.topbar.minimumHeight() == 46
+    assert reader.topbar.maximumHeight() == 46
+    assert reader.title_label.objectName() == "ReaderTopTitle"
+    assert reader.book_label.objectName() == "ReaderTopBook"
     assert reader.toc_button.icon_name() == "toc"
-    assert reader.info_button.icon_name() == "info"
     assert reader.bookmark_button.isCheckable()
-    assert reader.pin_button.isChecked()
+    assert [b.icon_name() for b in (
+        reader.bookmark_button, reader.search_button, reader.aa_button,
+        reader.note_button, reader.more_button,
+    )] == ["bookmark", "search", "aa", "note", "more"]
     assert [action.text() for action in reader.more_menu.actions()] == [
         "全屏（F11）",
         "返回书库",
@@ -61,7 +63,7 @@ def test_r1_topbar_matches_prototype(reader):
     ]
 
 
-def test_r1_update_header_sets_author_and_cover(reader):
+def test_r1_update_header_sets_chapter_and_cover(reader):
     reader._book_id = 7
     reader._book = {
         "title": "我的书",
@@ -70,14 +72,25 @@ def test_r1_update_header_sets_author_and_cover(reader):
         "cover_path": "",
     }
     reader._book_path = "x"
+    reader._location = {"label": "第三章", "percent": 0.2}
     reader._update_header()
-    assert reader.author_label.text() == "某某"
-    assert reader.cover_label.pixmap() is not None
-    assert not reader.cover_label.pixmap().isNull()
+    # 顶栏真值：书名 · 章节；侧栏封面卡拿到书封。
+    assert reader._title_full == "我的书 · 第三章"
+    assert reader._header_chapter == "第三章"
+    assert reader._header_book == "我的书"
+    assert reader.cover_card.title_label.text() == "我的书"
+    assert not reader.cover_card.cover.grab().isNull()
 
-    reader._book["author_name"] = ""
+    # 修掉把「封面」当章节名的 bug：落在封面时只显示书名。
+    reader._location = {"label": "封面", "percent": 0.0}
     reader._update_header()
-    assert reader.author_label.text() == "作者未知"
+    assert reader._title_full == "我的书"
+    assert reader._header_chapter == ""
+
+    # location.title 优先于 label。
+    reader._location = {"title": "序章", "label": "cover.xhtml", "percent": 0.01}
+    reader._update_header()
+    assert reader._header_chapter == "序章"
 
 
 def test_r1_favorite_action_toggles_db(reader, db, tmp_path):
@@ -108,7 +121,7 @@ def test_r1_autohide_moves_both_bars_without_moving_body(reader):
     assert reader._chrome_visible is False
     assert reader.topbar.testAttribute(Qt.WA_TransparentForMouseEvents)
     assert reader.bottombar.testAttribute(Qt.WA_TransparentForMouseEvents)
-    assert reader._chrome_pos_anims["top"].endValue() == QPoint(0, -52)
+    assert reader._chrome_pos_anims["top"].endValue() == QPoint(0, -46)
     assert reader._chrome_pos_anims["bottom"].endValue() == QPoint(0, 800)
     assert reader._chrome_opacity_anims["top"].endValue() == pytest.approx(0.0)
     assert reader._chrome_opacity_anims["bottom"].endValue() == pytest.approx(0.0)
