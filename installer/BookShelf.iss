@@ -14,10 +14,10 @@ AppVerName=BookShelf {#AppVersion}
 AppPublisher=BookShelf contributors
 VersionInfoVersion={#AppVersionQuad}
 VersionInfoProductVersion={#AppVersionQuad}
-DefaultDirName={localappdata}\Programs\BookShelf
+DefaultDirName={autopf}\BookShelf
 DefaultGroupName=BookShelf
 DisableProgramGroupPage=yes
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
 UsePreviousAppDir=yes
 CloseApplications=yes
 ; 安装结束后不再让 Setup 自动重启 BookShelf：Qt WebEngine 的子进程会让
@@ -59,6 +59,10 @@ Source: "..\dist\BookShelf\*"; DestDir: "{app}"; Flags: ignoreversion recursesub
 ; 1.1.2 及更早版本把依赖放在 _internal；升级到平铺布局时清掉旧目录，避免遗留近 400 MB 文件。
 Type: filesandordirs; Name: "{app}\_internal"
 
+[Run]
+; 安装完成后可选启动；runascurrentuser 避免以管理员令牌启动普通应用。
+Filename: "{app}\BookShelf.exe"; Description: "启动 书格 BookShelf"; Flags: nowait postinstall skipifsilent runascurrentuser
+
 [Icons]
 Name: "{group}\BookShelf"; Filename: "{app}\BookShelf.exe"; WorkingDir: "{app}"
 Name: "{group}\卸载 BookShelf"; Filename: "{uninstallexe}"
@@ -94,3 +98,22 @@ Root: HKCU; Subkey: "Software\Classes\SystemFileAssociations\.azw3\shell\BookShe
 ; 只清理程序目录；%APPDATA%\BookShelf 不在卸载删除范围内。
 Type: filesandordirs; Name: "{app}\*"
 Type: dirifempty; Name: "{app}"
+
+[Code]
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  LegacyDir: String;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    // 旧版本默认装在用户目录；迁移到 {autopf} 后不自动删除用户文件，
+    // 仅提示可手动清理（{app} 自身或旧目录不存在时不打扰用户）。
+    LegacyDir := ExpandConstant('{localappdata}') + '\Programs\BookShelf';
+    if DirExists(LegacyDir) and (CompareText(LegacyDir, ExpandConstant('{app}')) <> 0) then
+    begin
+      MsgBox('检测到旧版本的安装目录：' + #13#10 + LegacyDir + #13#10#13#10 +
+             '书格现已安装到新位置，旧目录可手动删除以释放空间（安装程序不会自动删除其中的文件）。',
+             mbInformation, MB_OK);
+    end;
+  end;
+end;
