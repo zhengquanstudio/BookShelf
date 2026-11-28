@@ -89,6 +89,17 @@ def test_library_table_header_sort_reruns_query(db, tmp_path, qapp, qt_settings)
         qapp.processEvents()
 
 
+def test_detail_panel_default_width_is_384(db, tmp_path, qapp, qt_settings):
+    window = _make_window(db, tmp_path, qapp, qt_settings)
+    try:
+        # T5：详情面板默认宽 384（未在 ui 配置里指定 detail_width 时）
+        assert window.detail.maximumWidth() == 384
+        assert len(window.detail._kv_values) == 8
+    finally:
+        window.close()
+        qapp.processEvents()
+
+
 def test_progress_display_and_isbn_tooltip(db, tmp_path, qapp, qt_settings):
     window = _make_window(db, tmp_path, qapp, qt_settings)
     try:

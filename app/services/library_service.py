@@ -161,6 +161,16 @@ class LibraryService:
         )
         return [str(row["name"]) for row in rows]
 
+    def archive_path(self, book_id: int) -> str:
+        """返回最近一次非跳过整理的归档目标路径；从未整理则为空串（仅展示用）。"""
+        rows = self.db.query(
+            "SELECT target_path FROM library_items "
+            "WHERE book_id = ? AND result <> 'skipped' "
+            "AND IFNULL(target_path, '') <> '' ORDER BY id DESC LIMIT 1",
+            (int(book_id),),
+        )
+        return str(rows[0]["target_path"]) if rows else ""
+
     # ---- 标签管理（M7） ---------------------------------------------
     def rename_tag(self, old_name: str, new_name: str) -> int:
         """重命名标签；新名已存在时合并到同名标签，返回受影响书籍数。"""

@@ -154,7 +154,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "language": "zh-CN",
         "theme": "dark",
         "nav_width": 220,
-        "detail_width": 376,
+        "detail_width": 384,
         "window_size": [1440, 900],
     },
 }

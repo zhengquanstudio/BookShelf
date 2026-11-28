@@ -292,13 +292,13 @@ QTableView::item {
 
 #CoverBox {
     background: #25282d;
-    border: 1px dashed #3a4048;
-    border-radius: 9px;
-    color: #6f7681;
+    border: 1px solid #33383f;
+    border-radius: 6px;
 }
 
 #DetailTitle {
-    font-size: 16px;
+    font-family: "Georgia", "SimSun", serif;
+    font-size: 15px;
     font-weight: bold;
     color: #e7e9ee;
 }
@@ -340,6 +340,57 @@ QTableView::item {
     font-size: 11.5px;
     padding: 8px;
 }
+
+#DetailScroll { background: transparent; }
+
+#DetailTop { border-bottom: 1px solid #33383f; }
+
+#DetailSectionTitle {
+    color: #a3a9b4;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+#KvLabel {
+    color: #6f7681;
+    font-size: 12px;
+}
+
+#KvValue {
+    color: #e7e9ee;
+    font-size: 12.5px;
+}
+
+#PathCaption {
+    color: #6f7681;
+    font-size: 11.5px;
+    font-weight: bold;
+}
+
+#PathValue {
+    color: #a3a9b4;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 11.5px;
+}
+
+#DetailIntro {
+    color: #e7e9ee;
+    font-size: 12.5px;
+    line-height: 1.6;
+}
+
+#LinkButton {
+    background: transparent;
+    border: none;
+    color: #8fb6fb;
+    font-size: 11.5px;
+    padding: 0;
+    text-align: left;
+}
+
+#LinkButton:hover { color: #4f8cf7; }
+
+#DetailActions { border-top: 1px solid #33383f; }
 
 #LogPanel {
     background: #1b1d21;

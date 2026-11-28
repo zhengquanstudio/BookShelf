@@ -578,7 +578,7 @@ class SettingsDialog(QDialog):
 
         _select_data(self.ui_theme, ui.get("theme", "dark"))
         self.nav_width.setValue(int(ui.get("nav_width", 220)))
-        self.detail_width.setValue(int(ui.get("detail_width", 376)))
+        self.detail_width.setValue(int(ui.get("detail_width", 384)))
         self._refresh_examples()
 
     def _refresh_preset_combo(self) -> None:

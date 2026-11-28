@@ -384,7 +384,7 @@ class MainWindow(QMainWindow):
 
         ui_config = self.settings.data.get("ui") or {}
         nav_width = int(ui_config.get("nav_width", 236))
-        detail_width = int(ui_config.get("detail_width", 376))
+        detail_width = int(ui_config.get("detail_width", 384))
 
         self.nav = NavSidebar()
         self.nav.setFixedWidth(nav_width)
@@ -589,11 +589,12 @@ class MainWindow(QMainWindow):
             self._settings_dialog.setStyleSheet(qss)
             self._settings_dialog.refresh_theme()
         self.nav.setFixedWidth(int(ui_config.get("nav_width", 236)))
-        self.detail.setFixedWidth(int(ui_config.get("detail_width", 376)))
+        self.detail.setFixedWidth(int(ui_config.get("detail_width", 384)))
         theme_name = str(ui_config.get("theme") or "dark")
         self.table_model.set_theme(theme_name)
         self._cell_delegate.set_theme(theme_name)
         self.table.viewport().update()
+        self.detail.set_theme(theme_name)
 
     # ---- 书库数据 ---------------------------------------------------
     def refresh_library(self, *_args) -> None:
@@ -691,6 +692,9 @@ class MainWindow(QMainWindow):
         if book is None:
             self.detail.clear()
             return
+        book = dict(book)
+        book["target_path"] = self.library.archive_path(book["id"])
+        book["tags"] = self.library.tags_for(book["id"])
         self.detail.show_book(book, self.library.cover_for(book))
 
     def _on_selection(self, current, _previous) -> None:

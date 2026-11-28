@@ -49,19 +49,15 @@ def test_main_window_applies_theme_widths_and_spacing(qapp, db, tmp_path, qt_set
         window.resize(1024, 640)
         qapp.processEvents()
         detail = window.detail
-        kv_bottom = (
-            detail._kv.mapTo(detail, detail._kv.rect().topLeft()).y()
-            + detail._kv.height()
-        )
-        path_top = detail._path.mapTo(detail, detail._path.rect().topLeft()).y()
-        assert path_top >= kv_bottom
+        # T5 详情面板：8 行元数据（含新增的「系列」「阅读进度」）+ 路径框 + 简介
+        assert len(detail._kv_values) == 8
+        assert "系列" in detail._kv_values
+        assert "阅读进度" in detail._kv_values
+        assert detail.findChild(QFrame, "PathBox") is not None
+        assert detail._intro is not None
 
         assert window.nav.maximumWidth() == 240
         assert window.detail.maximumWidth() == 420
-
-        assert window.detail._kv.sizePolicy().verticalPolicy() == QSizePolicy.Fixed
-        assert window.detail._kv_rows["出版社"].minimumHeight() == 22
-        assert window.detail._path.minimumHeight() == 52
 
         assert "#17181b" not in window.styleSheet()
         assert "#f3f5f7" in window.styleSheet()
