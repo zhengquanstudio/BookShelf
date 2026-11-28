@@ -594,20 +594,21 @@ class MainWindow(QMainWindow):
         self.move(x, y)
 
     def _apply_ui_theme(self) -> None:
-        """立即应用界面主题与左右栏宽度（保存设置后无需重启）。"""
+        """立即应用界面主题、强调色与左右栏宽度（保存设置后无需重启）。"""
         ui_config = self.settings.data.get("ui") or {}
-        qss = load_stylesheet(str(ui_config.get("theme") or "dark"))
+        theme_name = str(ui_config.get("theme") or "dark")
+        accent_name = str(ui_config.get("accent") or "blue")
+        qss = load_stylesheet(theme_name, accent_name)
         self.setStyleSheet(qss)
         if self._settings_dialog is not None:
             self._settings_dialog.setStyleSheet(qss)
             self._settings_dialog.refresh_theme()
         self.nav.setFixedWidth(int(ui_config.get("nav_width", 236)))
         self.detail.setFixedWidth(int(ui_config.get("detail_width", 384)))
-        theme_name = str(ui_config.get("theme") or "dark")
-        self.table_model.set_theme(theme_name)
-        self._cell_delegate.set_theme(theme_name)
+        self.table_model.set_theme(theme_name, accent_name)
+        self._cell_delegate.set_theme(theme_name, accent_name)
         self.table.viewport().update()
-        self.detail.set_theme(theme_name)
+        self.detail.set_theme(theme_name, accent_name)
         self._position_batch_bar()
 
     # ---- 书库数据 ---------------------------------------------------

@@ -153,6 +153,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "ui": {
         "language": "zh-CN",
         "theme": "dark",
+        "accent": "blue",
         "nav_width": 220,
         "detail_width": 384,
         "window_size": [1440, 900],

@@ -36,19 +36,22 @@ from ...core.naming import NamingRules, plan_target
 from ...db.connection import Database
 from ...errors import ConfigError
 from ...services.settings_service import SettingsService
-from ..theme import ui_colors
+from ..theme import (
+    ACCENT_NAMES,
+    BASE_THEME_NAMES,
+    chrome_tokens,
+    normalize_accent,
+    normalize_theme,
+    ui_colors,
+)
 
 _PAGES = (
-    ("general", "常规"),
-    ("library", "书库与路径"),
-    ("scan", "扫描"),
-    ("meta", "元数据与检索"),
-    ("naming", "命名规则"),
-    ("reader", "阅读器"),
-    ("appearance", "外观主题"),
-    ("database", "数据库与缓存"),
-    ("logs", "高级日志"),
-    ("reset", "恢复默认"),
+    ("appearance", "外观与主题"),
+    ("reader", "阅读设置"),
+    ("library", "书库与整理"),
+    ("sources", "识别来源"),
+    ("fonts", "字体"),
+    ("about", "关于"),
 )
 
 _SAMPLES: tuple[dict[str, Any], ...] = (
@@ -92,6 +95,11 @@ _SAMPLES: tuple[dict[str, Any], ...] = (
     },
 )
 
+# 三个底色的示意色块（主题卡片背景）。
+_THEME_SWATCHES = {"paper": "#efe9dd", "gray": "#f3f5f7", "night": "#17181b"}
+_THEME_SWATCH_TEXT = {"paper": "#2b2a26", "gray": "#2b2a26", "night": "#e7e9ee"}
+_THEME_LABELS = {"paper": "纸白", "gray": "灰调", "night": "夜间"}
+
 
 class SettingsDialog(QDialog):
     """分页设置；命名规则改动会实时刷新底部四条示例。"""
@@ -114,6 +122,8 @@ class SettingsDialog(QDialog):
         self.resize(1080, 720)
         self.setMinimumSize(920, 620)
         self._page_keys = [key for key, _name in _PAGES]
+        self._selected_theme = "night"
+        self._selected_accent = "blue"
         self._build_ui()
         self._load_from_settings()
         if initial_page in self._page_keys:
@@ -140,16 +150,12 @@ class SettingsDialog(QDialog):
         self.stack = QStackedWidget()
         self.stack.setObjectName("SettingsStack")
         builders = (
-            self._page_general,
-            self._page_library,
-            self._page_scan,
-            self._page_meta,
-            self._page_naming,
-            self._page_reader,
             self._page_appearance,
-            self._page_database,
-            self._page_logs,
-            self._page_reset,
+            self._page_reader,
+            self._page_library,
+            self._page_sources,
+            self._page_fonts,
+            self._page_about,
         )
         for builder in builders:
             self.stack.addWidget(builder())
@@ -230,22 +236,64 @@ class SettingsDialog(QDialog):
             combo.addItem(text, value)
         return combo
 
-    # ---- 各页 -------------------------------------------------------
-    def _page_general(self) -> QWidget:
-        page, layout = self._page("常规", "界面语言与启动行为。")
-        lang = QLabel("简体中文（zh-CN）")
-        self._row(layout, "界面语言", lang, "当前版本仅提供简体中文")
+    # ---- 各分组（控件写入传入 layout） -------------------------------
+    def _group_appearance(self, layout: QVBoxLayout) -> None:
+        section = QLabel("底色")
+        section.setObjectName("SettingLabel")
+        layout.addWidget(section)
+        self._theme_buttons: dict[str, QPushButton] = {}
+        theme_row = QHBoxLayout()
+        theme_row.setSpacing(8)
+        for key in BASE_THEME_NAMES:
+            btn = QPushButton(_THEME_LABELS.get(key, key))
+            btn.setCheckable(True)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.clicked.connect(lambda _=False, k=key: self._select_theme(k))
+            self._theme_buttons[key] = btn
+            theme_row.addWidget(btn)
+        theme_row.addStretch(1)
+        layout.addLayout(theme_row)
+
+        accent_label = QLabel("强调色")
+        accent_label.setObjectName("SettingLabel")
+        layout.addWidget(accent_label)
+        self._accent_buttons: dict[str, QPushButton] = {}
+        accent_row = QHBoxLayout()
+        accent_row.setSpacing(10)
+        for key in ACCENT_NAMES:
+            btn = QPushButton()
+            btn.setCheckable(True)
+            btn.setFixedSize(28, 28)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.clicked.connect(lambda _=False, k=key: self._select_accent(k))
+            self._accent_buttons[key] = btn
+            accent_row.addWidget(btn)
+        accent_row.addStretch(1)
+        layout.addLayout(accent_row)
+
+        hint = QLabel("切换底色或强调色立即生效，无需保存或重启。")
+        hint.setObjectName("DetailSub")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        self.nav_width = QSpinBox()
+        self.nav_width.setRange(180, 320)
+        self.nav_width.setFixedWidth(120)
+        self._row(layout, "左栏宽度", self.nav_width, "px")
+        self.detail_width = QSpinBox()
+        self.detail_width.setRange(300, 520)
+        self.detail_width.setFixedWidth(120)
+        self._row(layout, "右栏宽度", self.detail_width, "px")
+
+    def _group_reader(self, layout: QVBoxLayout) -> None:
+        self.reader_theme = self._combo((("浅色纸面", "light"), ("米黄", "sepia"), ("深色", "dark")))
+        self._row(layout, "阅读主题", self.reader_theme)
         self.open_mode_combo = self._combo(
             (("双击在新窗口阅读", "window"), ("双击用外部程序打开", "external"))
         )
         self._row(layout, "双击书籍", self.open_mode_combo, "阅读窗口为独立窗口，不占用书库界面")
-        layout.addStretch(1)
-        return page
 
-    def _page_library(self) -> QWidget:
-        page, layout = self._page(
-            "书库与路径", "书库根目录是整理后的归档位置，源目录只读。"
-        )
+    def _group_library_paths(self, layout: QVBoxLayout) -> None:
         row = QHBoxLayout()
         label = QLabel("书库根目录")
         label.setObjectName("SettingLabel")
@@ -274,77 +322,8 @@ class SettingsDialog(QDialog):
         data_hint = QLabel(f"数据目录：{config.DATA_DIR}")
         data_hint.setObjectName("DetailSub")
         layout.addWidget(data_hint)
-        layout.addStretch(1)
-        return page
 
-    def _page_scan(self) -> QWidget:
-        page, layout = self._page("扫描", "扫描仅登记路径；整理时默认复制入库，不移动或删除原文件。")
-        self.scan_recursive = QCheckBox("递归子目录")
-        self.scan_incremental = QCheckBox("增量扫描（跳过未变化文件）")
-        self.scan_ignore_hidden = QCheckBox("忽略隐藏文件与目录")
-        for box in (self.scan_recursive, self.scan_incremental, self.scan_ignore_hidden):
-            layout.addWidget(box)
-        self.scan_min_size = QSpinBox()
-        self.scan_min_size.setRange(0, 10240)
-        self.scan_min_size.setSuffix(" KB")
-        self.scan_min_size.setFixedWidth(120)
-        self._row(layout, "最小文件大小", self.scan_min_size, "小于该值的文件视为损坏并跳过")
-        self.scan_workers = QSpinBox()
-        self.scan_workers.setRange(1, 16)
-        self.scan_workers.setFixedWidth(120)
-        self._row(layout, "扫描线程数", self.scan_workers, "机械硬盘建议 2–4")
-        layout.addStretch(1)
-        return page
-
-    def _page_meta(self) -> QWidget:
-        page, layout = self._page(
-            "元数据与检索", "联网检索失败时自动降级为本地元数据，不会中断扫描。"
-        )
-        self.meta_network = QCheckBox("启用联网检索（豆瓣 / Crossref / OpenLibrary / Google Books）")
-        layout.addWidget(self.meta_network)
-        self.meta_douban = QCheckBox("使用豆瓣读书（中文书首选，网页抓取）")
-        self.meta_crossref = QCheckBox("使用 Crossref（外文与学术书）")
-        self.meta_kongfz = QCheckBox("使用孔夫子旧书网（旧书/绝版书）")
-        self.meta_openlibrary = QCheckBox("使用 OpenLibrary")
-        self.meta_googlebooks = QCheckBox("使用 Google Books")
-        for box in (
-            self.meta_douban,
-            self.meta_crossref,
-            self.meta_kongfz,
-            self.meta_openlibrary,
-            self.meta_googlebooks,
-        ):
-            layout.addWidget(box)
-        self.meta_auto = QSpinBox()
-        self.meta_auto.setRange(50, 100)
-        self.meta_auto.setFixedWidth(120)
-        self._row(layout, "自动应用阈值", self.meta_auto, "匹配度达到该值自动写入")
-        self.meta_confirm = QSpinBox()
-        self.meta_confirm.setRange(0, 100)
-        self.meta_confirm.setFixedWidth(120)
-        self._row(layout, "待确认阈值", self.meta_confirm, "低于自动阈值但高于该值时进入待确认")
-        self.meta_daily_limit = QSpinBox()
-        self.meta_daily_limit.setRange(0, 5000)
-        self.meta_daily_limit.setFixedWidth(120)
-        self._row(layout, "每日请求上限", self.meta_daily_limit)
-        self.meta_ttl = QSpinBox()
-        self.meta_ttl.setRange(1, 365)
-        self.meta_ttl.setSuffix(" 天")
-        self.meta_ttl.setFixedWidth(120)
-        self._row(layout, "缓存有效期", self.meta_ttl)
-        self.meta_rate = QSpinBox()
-        self.meta_rate.setRange(0, 10000)
-        self.meta_rate.setSuffix(" ms")
-        self.meta_rate.setFixedWidth(120)
-        self._row(layout, "请求最小间隔", self.meta_rate)
-        layout.addStretch(1)
-        return page
-
-    def _page_naming(self) -> QWidget:
-        page, layout = self._page(
-            "命名规则",
-            "占位符：{作者} {作者全} {国家} {书名} {副标题} {卷号} {丛书} {年份} {出版社} {ISBN} {扩展名}。修改后下方示例实时更新。",
-        )
+    def _group_naming(self, layout: QVBoxLayout) -> None:
         self.author_template_edit = QLineEdit()
         self.author_template_edit.setFixedWidth(340)
         self.author_template_edit.textChanged.connect(self._refresh_examples)
@@ -418,13 +397,63 @@ class SettingsDialog(QDialog):
         self.example_view.setReadOnly(True)
         self.example_view.setFixedHeight(96)
         layout.addWidget(self.example_view)
-        layout.addStretch(1)
-        return page
 
-    def _page_reader(self) -> QWidget:
-        page, layout = self._page("阅读器", "阅读器设置在 M5 生效。")
-        self.reader_theme = self._combo((("浅色纸面", "light"), ("米黄", "sepia"), ("深色", "dark")))
-        self._row(layout, "阅读主题", self.reader_theme)
+    def _group_scan(self, layout: QVBoxLayout) -> None:
+        self.scan_recursive = QCheckBox("递归子目录")
+        self.scan_incremental = QCheckBox("增量扫描（跳过未变化文件）")
+        self.scan_ignore_hidden = QCheckBox("忽略隐藏文件与目录")
+        for box in (self.scan_recursive, self.scan_incremental, self.scan_ignore_hidden):
+            layout.addWidget(box)
+        self.scan_min_size = QSpinBox()
+        self.scan_min_size.setRange(0, 10240)
+        self.scan_min_size.setSuffix(" KB")
+        self.scan_min_size.setFixedWidth(120)
+        self._row(layout, "最小文件大小", self.scan_min_size, "小于该值的文件视为损坏并跳过")
+        self.scan_workers = QSpinBox()
+        self.scan_workers.setRange(1, 16)
+        self.scan_workers.setFixedWidth(120)
+        self._row(layout, "扫描线程数", self.scan_workers, "机械硬盘建议 2–4")
+
+    def _group_meta(self, layout: QVBoxLayout) -> None:
+        self.meta_network = QCheckBox("启用联网检索（豆瓣 / Crossref / OpenLibrary / Google Books）")
+        layout.addWidget(self.meta_network)
+        self.meta_douban = QCheckBox("使用豆瓣读书（中文书首选，网页抓取）")
+        self.meta_crossref = QCheckBox("使用 Crossref（外文与学术书）")
+        self.meta_kongfz = QCheckBox("使用孔夫子旧书网（旧书/绝版书）")
+        self.meta_openlibrary = QCheckBox("使用 OpenLibrary")
+        self.meta_googlebooks = QCheckBox("使用 Google Books")
+        for box in (
+            self.meta_douban,
+            self.meta_crossref,
+            self.meta_kongfz,
+            self.meta_openlibrary,
+            self.meta_googlebooks,
+        ):
+            layout.addWidget(box)
+        self.meta_auto = QSpinBox()
+        self.meta_auto.setRange(50, 100)
+        self.meta_auto.setFixedWidth(120)
+        self._row(layout, "自动应用阈值", self.meta_auto, "匹配度达到该值自动写入")
+        self.meta_confirm = QSpinBox()
+        self.meta_confirm.setRange(0, 100)
+        self.meta_confirm.setFixedWidth(120)
+        self._row(layout, "待确认阈值", self.meta_confirm, "低于自动阈值但高于该值时进入待确认")
+        self.meta_daily_limit = QSpinBox()
+        self.meta_daily_limit.setRange(0, 5000)
+        self.meta_daily_limit.setFixedWidth(120)
+        self._row(layout, "每日请求上限", self.meta_daily_limit)
+        self.meta_ttl = QSpinBox()
+        self.meta_ttl.setRange(1, 365)
+        self.meta_ttl.setSuffix(" 天")
+        self.meta_ttl.setFixedWidth(120)
+        self._row(layout, "缓存有效期", self.meta_ttl)
+        self.meta_rate = QSpinBox()
+        self.meta_rate.setRange(0, 10000)
+        self.meta_rate.setSuffix(" ms")
+        self.meta_rate.setFixedWidth(120)
+        self._row(layout, "请求最小间隔", self.meta_rate)
+
+    def _group_fonts(self, layout: QVBoxLayout) -> None:
         self.reader_font = QLineEdit()
         self.reader_font.setFixedWidth(340)
         self._row(layout, "正文字体", self.reader_font)
@@ -442,26 +471,10 @@ class SettingsDialog(QDialog):
         self.reader_margin.setRange(0, 240)
         self.reader_margin.setFixedWidth(120)
         self._row(layout, "页边距", self.reader_margin, "px")
-        layout.addStretch(1)
-        return page
 
-    def _page_appearance(self) -> QWidget:
-        page, layout = self._page("外观主题", "界面主题与三栏宽度。")
-        self.ui_theme = self._combo((("深色", "dark"), ("浅色", "light")))
-        self._row(layout, "界面主题", self.ui_theme, "保存后立即生效")
-        self.nav_width = QSpinBox()
-        self.nav_width.setRange(180, 320)
-        self.nav_width.setFixedWidth(120)
-        self._row(layout, "左栏宽度", self.nav_width, "px")
-        self.detail_width = QSpinBox()
-        self.detail_width.setRange(300, 520)
-        self.detail_width.setFixedWidth(120)
-        self._row(layout, "右栏宽度", self.detail_width, "px")
-        layout.addStretch(1)
-        return page
-
-    def _page_database(self) -> QWidget:
-        page, layout = self._page("数据库与缓存", "数据库使用 SQLite WAL，可直接备份。")
+    def _group_about(self, layout: QVBoxLayout) -> None:
+        lang = QLabel("简体中文（zh-CN）")
+        self._row(layout, "界面语言", lang, "当前版本仅提供简体中文")
         db_label = QLabel(str(config.DB_PATH))
         db_label.setObjectName("DetailSub")
         self._row(layout, "数据库文件", db_label)
@@ -474,14 +487,9 @@ class SettingsDialog(QDialog):
             lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(config.CACHE_DIR)))
         )
         layout.addWidget(open_cache)
-        self.cache_ttl_note = QLabel("检索缓存有效期在「元数据与检索」页设置。")
+        self.cache_ttl_note = QLabel("检索缓存有效期在「识别来源」页设置。")
         self.cache_ttl_note.setObjectName("DetailSub")
         layout.addWidget(self.cache_ttl_note)
-        layout.addStretch(1)
-        return page
-
-    def _page_logs(self) -> QWidget:
-        page, layout = self._page("高级日志", "日志按天写入用户数据目录，便于排查。")
         log_label = QLabel(str(config.LOG_PATH))
         log_label.setObjectName("DetailSub")
         self._row(layout, "日志文件", log_label)
@@ -491,11 +499,6 @@ class SettingsDialog(QDialog):
             lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(config.LOG_DIR)))
         )
         layout.addWidget(open_log)
-        layout.addStretch(1)
-        return page
-
-    def _page_reset(self) -> QWidget:
-        page, layout = self._page("恢复默认", "恢复默认不会删除已扫描的书籍与整理记录。")
         naming_button = QPushButton("恢复命名规则默认值")
         naming_button.setObjectName("GhostButton")
         naming_button.clicked.connect(self._reset_naming)
@@ -504,8 +507,91 @@ class SettingsDialog(QDialog):
         all_button.setObjectName("GhostButton")
         all_button.clicked.connect(self._reset_all)
         layout.addWidget(all_button)
+
+    # ---- 六页 -------------------------------------------------------
+    def _page_appearance(self) -> QWidget:
+        page, layout = self._page("外观与主题", "界面底色、强调色与三栏宽度，切换立即生效。")
+        self._group_appearance(layout)
         layout.addStretch(1)
         return page
+
+    def _page_reader(self) -> QWidget:
+        page, layout = self._page("阅读设置", "阅读器主题与打开方式，阅读时同步生效。")
+        self._group_reader(layout)
+        layout.addStretch(1)
+        return page
+
+    def _page_library(self) -> QWidget:
+        page, layout = self._page(
+            "书库与整理",
+            "书库根目录是整理后的归档位置，源目录只读；命名规则修改后下方示例实时更新。",
+        )
+        self._group_library_paths(layout)
+        self._group_naming(layout)
+        layout.addStretch(1)
+        return page
+
+    def _page_sources(self) -> QWidget:
+        page, layout = self._page(
+            "识别来源", "扫描仅登记路径；联网检索失败时自动降级为本地元数据，不会中断扫描。"
+        )
+        self._group_scan(layout)
+        self._group_meta(layout)
+        layout.addStretch(1)
+        return page
+
+    def _page_fonts(self) -> QWidget:
+        page, layout = self._page("字体", "阅读器正文字体与排版参数。")
+        self._group_fonts(layout)
+        layout.addStretch(1)
+        return page
+
+    def _page_about(self) -> QWidget:
+        page, layout = self._page(
+            "关于", "数据位置、日志与恢复默认；恢复默认不会删除已扫描的书籍与整理记录。"
+        )
+        self._group_about(layout)
+        layout.addStretch(1)
+        return page
+
+    # ---- 主题/强调色 即时应用 ----------------------------------------
+    def _select_theme(self, theme: str) -> None:
+        self._selected_theme = normalize_theme(theme)
+        self.settings.apply(
+            {"ui": {"theme": self._selected_theme, "accent": self._selected_accent}}
+        )
+        self._update_theme_controls()
+        self.applied.emit()
+
+    def _select_accent(self, accent: str) -> None:
+        self._selected_accent = normalize_accent(accent)
+        self.settings.apply(
+            {"ui": {"theme": self._selected_theme, "accent": self._selected_accent}}
+        )
+        self._update_theme_controls()
+        self.applied.emit()
+
+    def _update_theme_controls(self) -> None:
+        panel = chrome_tokens(self._selected_theme, self._selected_accent)
+        ring = panel["accent"]
+        for key, btn in self._theme_buttons.items():
+            selected = key == self._selected_theme
+            border = f"2px solid {ring}" if selected else "2px solid transparent"
+            btn.setStyleSheet(
+                f"background-color:{_THEME_SWATCHES.get(key, '#17181b')};"
+                f"color:{_THEME_SWATCH_TEXT.get(key, '#e7e9ee')};"
+                f"border:{border};border-radius:8px;padding:6px 14px;font-weight:600;"
+            )
+            btn.setChecked(selected)
+        ring_ink = panel["ink"]
+        for key, btn in self._accent_buttons.items():
+            tokens = chrome_tokens(self._selected_theme, key)
+            selected = key == self._selected_accent
+            border = f"2px solid {ring_ink}" if selected else "2px solid transparent"
+            btn.setStyleSheet(
+                f"background-color:{tokens['accent']};border:{border};border-radius:14px;"
+            )
+            btn.setChecked(selected)
 
     # ---- 载入 / 收集 ------------------------------------------------
     def _on_page_changed(self, index: int) -> None:
@@ -576,7 +662,9 @@ class SettingsDialog(QDialog):
         self.reader_margin.setValue(int(reader.get("margin_px", 64)))
         _select_data(self.open_mode_combo, reader.get("open_mode", "window"))
 
-        _select_data(self.ui_theme, ui.get("theme", "dark"))
+        self._selected_theme = normalize_theme(ui.get("theme", "dark"))
+        self._selected_accent = normalize_accent(ui.get("accent", "blue"))
+        self._update_theme_controls()
         self.nav_width.setValue(int(ui.get("nav_width", 220)))
         self.detail_width.setValue(int(ui.get("detail_width", 384)))
         self._refresh_examples()
@@ -645,7 +733,8 @@ class SettingsDialog(QDialog):
                 "open_mode": str(self.open_mode_combo.currentData() or "window"),
             },
             "ui": {
-                "theme": str(self.ui_theme.currentData() or "dark"),
+                "theme": self._selected_theme,
+                "accent": self._selected_accent,
                 "nav_width": int(self.nav_width.value()),
                 "detail_width": int(self.detail_width.value()),
             },
@@ -675,8 +764,10 @@ class SettingsDialog(QDialog):
                 },
             }
         )
-        theme = str((self.settings.data.get("ui") or {}).get("theme") or "dark")
-        colors = ui_colors(theme)
+        ui_cfg = self.settings.data.get("ui") or {}
+        theme = str(ui_cfg.get("theme") or "dark")
+        accent = str(ui_cfg.get("accent") or "blue")
+        colors = ui_colors(theme, accent)
         lines: list[str] = []
         for sample in _SAMPLES:
             plan = plan_target(dict(sample), rules)

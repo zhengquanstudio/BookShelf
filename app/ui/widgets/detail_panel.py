@@ -27,6 +27,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ..theme import chrome_tokens, is_light_theme
+
 _STATUS_TEXT = {
     "pending": "待整理",
     "ok": "已识别",
@@ -47,32 +49,40 @@ _KV_LABELS = ["出版社", "出版日期", "语言", "页数", "ISBN", "文件�
 
 
 def _is_light(theme: str) -> bool:
-    return str(theme).strip().lower() == "light"
+    return is_light_theme(theme)
 
 
 def _rgba(color: QColor) -> str:
     return f"rgba({color.red()},{color.green()},{color.blue()},{color.alpha() / 255:.2f})"
 
 
-def _chip_palette(theme: str) -> dict[str, tuple[QColor, QColor]]:
-    if _is_light(theme):
+def _chip_palette(theme: str, accent: str = "blue") -> dict[str, tuple[QColor, QColor]]:
+    tokens = chrome_tokens(theme, accent)
+    dark = not is_light_theme(theme)
+    if dark:
+        accent_bg = QColor(tokens["accent"])
+        accent_bg.setAlpha(40)
+    else:
+        accent_bg = QColor(tokens["accent_soft"])
+    accent_fg = QColor(tokens["accent_ink"])
+    if not dark:
         return {
-            "epub": (QColor("#e8f0ff"), QColor("#2f62c9")),
+            "epub": (accent_bg, accent_fg),
             "pdf": (QColor("#fbeae8"), QColor("#b83c33")),
             "ok": (QColor("#e3f1e3"), QColor("#2f7d32")),
             "warn": (QColor("#fbf0e0"), QColor("#a86d1f")),
             "fail": (QColor("#fbe6e4"), QColor("#b83c33")),
-            "faint": (QColor("#eef1f5"), QColor("#868e99")),
-            "tag": (QColor("#e8f0ff"), QColor("#2f6fd0")),
+            "faint": (QColor("#eef1f5"), QColor(tokens["faint"])),
+            "tag": (accent_bg, accent_fg),
         }
     return {
-        "epub": (QColor(79, 140, 247, 40), QColor("#8fb6fb")),
+        "epub": (accent_bg, accent_fg),
         "pdf": (QColor(224, 100, 93, 40), QColor("#e8a49e")),
         "ok": (QColor(80, 180, 120, 40), QColor("#7cc98e")),
         "warn": (QColor(232, 176, 75, 40), QColor("#e8c074")),
         "fail": (QColor(224, 100, 93, 46), QColor("#e8a49e")),
-        "faint": (QColor(255, 255, 255, 18), QColor("#6f7681")),
-        "tag": (QColor(79, 140, 247, 40), QColor("#8fb6fb")),
+        "faint": (QColor(255, 255, 255, 18), QColor(tokens["faint"])),
+        "tag": (accent_bg, accent_fg),
     }
 
 
@@ -108,6 +118,7 @@ class DetailPanel(QWidget):
         self.setObjectName("DetailPanel")
         self.setFixedWidth(384)
         self._theme = "dark"
+        self._accent = "blue"
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -302,8 +313,9 @@ class DetailPanel(QWidget):
         return section
 
     # ---- 主题 -------------------------------------------------------
-    def set_theme(self, theme: str) -> None:
+    def set_theme(self, theme: str, accent: str = "blue") -> None:
         self._theme = str(theme or "dark")
+        self._accent = str(accent or "blue")
         # 当前若没有真实封面，重绘占位渐变。
         if not getattr(self, "_has_cover", False):
             self._cover.setPixmap(self._render_placeholder(self._current_title()))
@@ -447,7 +459,9 @@ class DetailPanel(QWidget):
         label.setText(text)
         label.setProperty("kind", kind)
         label.setVisible(True)
-        bg, fg = _chip_palette(self._theme).get(kind, _chip_palette(self._theme)["faint"])
+        bg, fg = _chip_palette(self._theme, self._accent).get(
+            kind, _chip_palette(self._theme, self._accent)["faint"]
+        )
         label.setStyleSheet(
             f"background-color:{_rgba(bg)};color:{_rgba(fg)};"
             "border-radius:10px;padding:1px 8px;font-size:11px;font-weight:600;"
@@ -474,7 +488,7 @@ class DetailPanel(QWidget):
 
     def _refresh_path_style(self) -> None:
         target_value = self._target_row.itemAt(1).widget()
-        palette = _chip_palette(self._theme)
+        palette = _chip_palette(self._theme, self._accent)
         if self._target_path:
             _, fg = palette["tag"]
             target_value.setStyleSheet(f"color:{_rgba(fg)};")

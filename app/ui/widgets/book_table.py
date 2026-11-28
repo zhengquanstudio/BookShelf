@@ -9,6 +9,8 @@ from PySide6.QtCore import QAbstractTableModel, QModelIndex, QRect, QSize, Qt, S
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import QApplication, QStyle, QStyledItemDelegate
 
+from ..theme import chrome_tokens, is_light_theme
+
 HEADERS = [
     ("", 34, "check"),
     ("书名 / 作者", 380, "title"),
@@ -110,36 +112,34 @@ def _subtitle(row: dict[str, Any]) -> str:
     return " · ".join(p for p in parts if p)
 
 
-def _palette(theme: str) -> dict[str, QColor]:
+def _palette(theme: str, accent: str = "blue") -> dict[str, QColor]:
     """内联绘制用的主题色板（QSS 字符串替换覆盖不到 Python 内的颜色）。"""
-    if str(theme).strip().lower() == "light":
-        return {
-            "text": QColor("#20242b"),
-            "muted": QColor("#5b6470"),
-            "faint": QColor("#868e99"),
-            "accent": QColor("#2f6fd0"),
-            "panel2": QColor("#f3f5f8"),
-            "line": QColor("#d8dde4"),
-            "epub_bg": QColor("#e8f0ff"), "epub_fg": QColor("#2f62c9"),
-            "pdf_bg": QColor("#fbeae8"), "pdf_fg": QColor("#b83c33"),
-            "ok_bg": QColor("#e3f1e3"), "ok_fg": QColor("#2f7d32"),
-            "warn_bg": QColor("#fbf0e0"), "warn_fg": QColor("#a86d1f"),
-            "fail_bg": QColor("#fbe6e4"), "fail_fg": QColor("#b83c33"),
-            "faint_bg": QColor("#eef1f5"), "faint_fg": QColor("#868e99"),
-        }
+    tokens = chrome_tokens(theme, accent)
+    dark = not is_light_theme(theme)
+    if dark:
+        accent_bg = QColor(tokens["accent"])
+        accent_bg.setAlpha(40)
+    else:
+        accent_bg = QColor(tokens["accent_soft"])
     return {
-        "text": QColor("#e7e9ee"),
-        "muted": QColor("#a3a9b4"),
-        "faint": QColor("#6f7681"),
-        "accent": QColor("#4f8cf7"),
-        "panel2": QColor("#25282d"),
-        "line": QColor("#33383f"),
-        "epub_bg": QColor(79, 140, 247, 40), "epub_fg": QColor("#8fb6fb"),
-        "pdf_bg": QColor(224, 100, 93, 40), "pdf_fg": QColor("#e8a49e"),
-        "ok_bg": QColor(80, 180, 120, 40), "ok_fg": QColor("#7cc98e"),
-        "warn_bg": QColor(232, 176, 75, 40), "warn_fg": QColor("#e8c074"),
-        "fail_bg": QColor(224, 100, 93, 46), "fail_fg": QColor("#e8a49e"),
-        "faint_bg": QColor(255, 255, 255, 18), "faint_fg": QColor("#6f7681"),
+        "text": QColor(tokens["ink"]),
+        "muted": QColor(tokens["muted"]),
+        "faint": QColor(tokens["faint"]),
+        "accent": QColor(tokens["accent"]),
+        "panel2": QColor(tokens["panel2"]),
+        "line": QColor(tokens["line"]),
+        "epub_bg": accent_bg,
+        "epub_fg": QColor(tokens["accent_ink"]),
+        "pdf_bg": QColor(224, 100, 93, 40) if dark else QColor("#fbeae8"),
+        "pdf_fg": QColor("#e8a49e") if dark else QColor("#b83c33"),
+        "ok_bg": QColor(80, 180, 120, 40) if dark else QColor("#e3f1e3"),
+        "ok_fg": QColor("#7cc98e") if dark else QColor("#2f7d32"),
+        "warn_bg": QColor(232, 176, 75, 40) if dark else QColor("#fbf0e0"),
+        "warn_fg": QColor("#e8c074") if dark else QColor("#a86d1f"),
+        "fail_bg": QColor(224, 100, 93, 46) if dark else QColor("#fbe6e4"),
+        "fail_fg": QColor("#e8a49e") if dark else QColor("#b83c33"),
+        "faint_bg": QColor(255, 255, 255, 18) if dark else QColor("#eef1f5"),
+        "faint_fg": QColor(tokens["faint"]),
     }
 
 
@@ -153,9 +153,11 @@ class BookTableModel(QAbstractTableModel):
         self._rows: list[dict[str, Any]] = []
         self._checked: set[int] = set()
         self._theme = "dark"
+        self._accent = "blue"
 
-    def set_theme(self, theme: str) -> None:
+    def set_theme(self, theme: str, accent: str = "blue") -> None:
         self._theme = str(theme or "dark")
+        self._accent = str(accent or "blue")
 
     def set_rows(self, rows: Sequence[Any]) -> None:
         self.beginResetModel()
@@ -301,10 +303,12 @@ class BookCellDelegate(QStyledItemDelegate):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._theme = "dark"
+        self._accent = "blue"
         self._cover_cache: dict[str, QPixmap | None] = {}
 
-    def set_theme(self, theme: str) -> None:
+    def set_theme(self, theme: str, accent: str = "blue") -> None:
         self._theme = str(theme or "dark")
+        self._accent = str(accent or "blue")
 
     def sizeHint(self, option, index):  # noqa: N802
         hint = super().sizeHint(option, index)
@@ -326,7 +330,7 @@ class BookCellDelegate(QStyledItemDelegate):
     # ---- 绘制入口 ---------------------------------------------------
     def paint(self, painter: QPainter, option, index: QModelIndex) -> None:  # noqa: N802
         key = HEADERS[index.column()][2]
-        pal = _palette(self._theme)
+        pal = _palette(self._theme, self._accent)
         if key == "title":
             self._paint_title(painter, option, index, pal)
         elif key == "progress":
