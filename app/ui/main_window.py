@@ -9,6 +9,7 @@ import re
 from PySide6.QtCore import QSettings, QThreadPool, QTimer, Qt, QUrl
 from PySide6.QtGui import QAction, QColor, QDesktopServices
 from PySide6.QtWidgets import (
+    QButtonGroup,
     QComboBox,
     QFileDialog,
     QFrame,
@@ -21,11 +22,9 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressDialog,
     QPushButton,
-    QSizePolicy,
     QSplitter,
     QStackedWidget,
     QTableView,
-    QToolBar,
     QVBoxLayout,
     QWidget,
     QApplication,
@@ -106,7 +105,6 @@ class MainWindow(QMainWindow):
         self.resize(int(width), int(height))
 
         self._build_menu()
-        self._build_toolbar()
         self._build_body()
         self._build_statusbar()
         self._load_style()
@@ -231,37 +229,65 @@ class MainWindow(QMainWindow):
                     action = self._placeholder(item)
                 menu.addAction(action)
 
-    def _build_toolbar(self) -> None:
-        toolbar = QToolBar("主工具栏", self)
-        toolbar.setObjectName("MainToolBar")
-        toolbar.setMovable(False)
-        toolbar.setFixedHeight(60)
-        self.addToolBar(toolbar)
+    def _build_topbar(self, header: QFrame) -> None:
+        """单行 52px 顶栏：品牌 | 分段动作 | 执行整理 | 搜索 | 视图切换 | 设置。
 
-        primary = QPushButton("扫描新书")
-        primary.setObjectName("PrimaryButton")
-        primary.clicked.connect(self.open_scan_dialog)
-        toolbar.addWidget(primary)
+        对应 v4 原型 <header class="topbar">；合并原 38px 标题栏与 60px 工具条。
+        """
+        layout = QHBoxLayout(header)
+        layout.setContentsMargins(12, 0, 12, 0)
+        layout.setSpacing(10)
 
-        library_button = QPushButton("选择书库")
-        library_button.setObjectName("GhostButton")
-        library_button.clicked.connect(self._choose_library)
-        toolbar.addWidget(library_button)
+        # 品牌字标（T1）
+        _ui_cfg = self.settings.data.get("ui") or {}
+        _accent = ui_colors(str(_ui_cfg.get("theme") or "dark"))["accent"]
+        _accent_dark = QColor(_accent).darker(120).name()
+        mark = QLabel(config.APP_NAME_CN[0])
+        mark.setObjectName("BrandMark")
+        mark.setFixedSize(26, 26)
+        mark.setAlignment(Qt.AlignCenter)
+        mark.setStyleSheet(
+            f"background: qlineargradient(x1:0, y1:0, x2:1, y2:1,"
+            f" stop:0 {_accent}, stop:1 {_accent_dark});"
+        )
+        text_col = QWidget()
+        text_layout = QVBoxLayout(text_col)
+        text_layout.setContentsMargins(0, 0, 0, 0)
+        text_layout.setSpacing(0)
+        cn = QLabel(config.APP_NAME_CN)
+        cn.setObjectName("BrandCN")
+        en = QLabel(config.APP_NAME.upper())
+        en.setObjectName("BrandEN")
+        text_layout.addWidget(cn)
+        text_layout.addWidget(en)
+        layout.addWidget(mark)
+        layout.addWidget(text_col)
 
-        for text in ("识别元数据", "预览整理", "执行整理"):
-            button = QPushButton(text)
-            button.setObjectName("GhostButton")
-            if text == "识别元数据":
-                button.clicked.connect(lambda: self._open_editor(auto_search=True))
-            elif text == "预览整理":
-                button.clicked.connect(lambda: self.open_preview())
-            else:
-                button.clicked.connect(lambda: self.open_preview(auto_execute=True))
-            toolbar.addWidget(button)
+        divider = QFrame()
+        divider.setObjectName("TopDivider")
+        layout.addWidget(divider)
 
-        spacer = QWidget()
-        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        toolbar.addWidget(spacer)
+        # 分段动作组（非互斥，点击即触发）
+        seg = self._make_segment()
+        for text, slot in (
+            ("扫描新书", self.open_scan_dialog),
+            ("书库", self._choose_library),
+            ("识别元数据", lambda: self._open_editor(auto_search=True)),
+            ("整理预览", self.open_preview),
+        ):
+            btn = QPushButton(text)
+            btn.setObjectName("SegButton")
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.clicked.connect(slot)
+            seg.layout().addWidget(btn)
+        layout.addWidget(seg)
+
+        run_btn = QPushButton("执行整理")
+        run_btn.setObjectName("PrimaryButton")
+        run_btn.clicked.connect(lambda: self.open_preview(auto_execute=True))
+        layout.addWidget(run_btn)
+
+        layout.addStretch(1)
 
         self.format_filter = QComboBox()
         self.format_filter.setObjectName("FormatFilter")
@@ -269,30 +295,71 @@ class MainWindow(QMainWindow):
         for key, label in (("epub", "EPUB"), ("pdf", "PDF"), ("mobi", "MOBI"), ("azw3", "AZW3")):
             self.format_filter.addItem(label, key)
         self.format_filter.currentIndexChanged.connect(self.refresh_library)
-        toolbar.addWidget(self.format_filter)
+        layout.addWidget(self.format_filter)
 
         self.search_box = QLineEdit()
         self.search_box.setObjectName("SearchBox")
-        self.search_box.setPlaceholderText("搜索书名 / 作者 / ISBN")
+        self.search_box.setPlaceholderText("搜索书名 / 作者 / ISBN / 标签")
         self.search_box.setClearButtonEnabled(True)
         self.search_box.setFixedWidth(240)
-        toolbar.addWidget(self.search_box)
+        layout.addWidget(self.search_box)
         self._search_timer = QTimer(self)
         self._search_timer.setSingleShot(True)
         self._search_timer.setInterval(250)
         self._search_timer.timeout.connect(self.refresh_library)
         self.search_box.textChanged.connect(lambda: self._search_timer.start())
 
-        settings = QPushButton("设置")
-        settings.setObjectName("GhostButton")
-        settings.clicked.connect(lambda: self._open_settings())
-        toolbar.addWidget(settings)
+        # 视图切换：列表 / 网格（网格视图随 T7 书架页落地后接线）
+        self._library_view_mode = "list"
+        viewseg = self._make_segment()
+        self._view_list_btn = self._make_toggle_button("列表", checked=True)
+        self._view_grid_btn = self._make_toggle_button("网格")
+        self._view_group = QButtonGroup(self)
+        self._view_group.setExclusive(True)
+        self._view_group.addButton(self._view_list_btn)
+        self._view_group.addButton(self._view_grid_btn)
+        self._view_list_btn.clicked.connect(lambda: self._set_library_view("list"))
+        self._view_grid_btn.clicked.connect(lambda: self._set_library_view("grid"))
+        viewseg.layout().addWidget(self._view_list_btn)
+        viewseg.layout().addWidget(self._view_grid_btn)
+        layout.addWidget(viewseg)
+
+        # 设置齿轮（替换原「设置」文字按钮；菜单仍保留设置项）
+        gear = QPushButton("⚙")
+        gear.setObjectName("IconButton")
+        gear.setToolTip("设置")
+        gear.setFixedSize(30, 30)
+        gear.setCursor(Qt.PointingHandCursor)
+        gear.clicked.connect(lambda: self._open_settings())
+        layout.addWidget(gear)
 
         self.clear_filter_button = QPushButton("清除筛选")
         self.clear_filter_button.setObjectName("GhostButton")
         self.clear_filter_button.clicked.connect(self._clear_filters)
         self.clear_filter_button.setVisible(False)
-        toolbar.addWidget(self.clear_filter_button)
+        layout.addWidget(self.clear_filter_button)
+
+    def _make_segment(self) -> QFrame:
+        frame = QFrame()
+        frame.setObjectName("SegGroup")
+        lay = QHBoxLayout(frame)
+        lay.setContentsMargins(2, 2, 2, 2)
+        lay.setSpacing(2)
+        return frame
+
+    def _make_toggle_button(self, text: str, *, checked: bool = False) -> QPushButton:
+        btn = QPushButton(text)
+        btn.setObjectName("SegButton")
+        btn.setCheckable(True)
+        btn.setChecked(checked)
+        btn.setCursor(Qt.PointingHandCursor)
+        return btn
+
+    def _set_library_view(self, mode: str) -> None:
+        self._library_view_mode = mode
+        # 网格视图尚未实现（T7 书架页），当前始终显示表格
+        if hasattr(self, "table_stack"):
+            self.table_stack.setCurrentWidget(self.table)
 
     # ---- 主体三栏 + 底部 -------------------------------------------
     def _build_body(self) -> None:
@@ -304,39 +371,8 @@ class MainWindow(QMainWindow):
 
         header = QFrame()
         header.setObjectName("TitleBar")
-        header.setFixedHeight(38)
-        header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(14, 0, 14, 0)
-        header_layout.setSpacing(8)
-
-        # 品牌字标：书图标 + 「书格」 + 「BookShelf」副标（主指令 §A.1）
-        _ui_cfg = self.settings.data.get("ui") or {}
-        _accent = ui_colors(str(_ui_cfg.get("theme") or "dark"))["accent"]
-        _accent_dark = QColor(_accent).darker(120).name()
-
-        mark = QLabel(config.APP_NAME_CN[0])
-        mark.setObjectName("BrandMark")
-        mark.setFixedSize(26, 26)
-        mark.setAlignment(Qt.AlignCenter)
-        mark.setStyleSheet(
-            f"background: qlineargradient(x1:0, y1:0, x2:1, y2:1,"
-            f" stop:0 {_accent}, stop:1 {_accent_dark});"
-        )
-
-        text_col = QWidget()
-        text_layout = QVBoxLayout(text_col)
-        text_layout.setContentsMargins(0, 0, 0, 0)
-        text_layout.setSpacing(0)
-        cn = QLabel(config.APP_NAME_CN)
-        cn.setObjectName("BrandCN")
-        en = QLabel(config.APP_NAME.upper())
-        en.setObjectName("BrandEN")
-        text_layout.addWidget(cn)
-        text_layout.addWidget(en)
-
-        header_layout.addWidget(mark)
-        header_layout.addWidget(text_col)
-        header_layout.addStretch(1)
+        header.setFixedHeight(52)
+        self._build_topbar(header)
         root.addWidget(header)
 
         ui_config = self.settings.data.get("ui") or {}

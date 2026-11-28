@@ -7,7 +7,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtWidgets import QApplication, QSizePolicy, QToolBar
+from PySide6.QtWidgets import QApplication, QFrame, QSizePolicy
 
 from app.services.settings_service import SettingsService
 from app.ui.main_window import MainWindow
@@ -40,9 +40,9 @@ def test_main_window_applies_theme_widths_and_spacing(qapp, db, tmp_path, qt_set
     settings.apply({"ui": {"theme": "light", "nav_width": 240, "detail_width": 420}})
     window = MainWindow(db, settings, qt_settings=qt_settings)
     try:
-        toolbar = window.findChild(QToolBar, "MainToolBar")
-        assert toolbar is not None
-        assert toolbar.minimumHeight() == 60
+        topbar = window.findChild(QFrame, "TitleBar")
+        assert topbar is not None
+        assert topbar.minimumHeight() == 52
         assert window.minimumHeight() == 880
 
         window.show()

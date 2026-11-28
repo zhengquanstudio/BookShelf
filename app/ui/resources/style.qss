@@ -141,6 +141,53 @@ QPushButton:pressed {
     border-color: #4f8cf7;
 }
 
+#TopDivider {
+    background: #33383f;
+    min-width: 1px;
+    max-width: 1px;
+    margin: 15px 0;
+}
+
+#SegGroup {
+    background: #25282d;
+    border: 1px solid #33383f;
+    border-radius: 9px;
+}
+
+#SegButton {
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    color: #a3a9b4;
+    padding: 5px 11px;
+    font-size: 12.5px;
+}
+
+#SegButton:hover {
+    color: #e7e9ee;
+    background: #2c3036;
+}
+
+#SegButton:checked {
+    background: #1f2125;
+    color: #e7e9ee;
+    font-weight: 600;
+}
+
+#IconButton {
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    color: #a3a9b4;
+    font-size: 16px;
+    padding: 0;
+}
+
+#IconButton:hover {
+    background: #2c3036;
+    color: #e7e9ee;
+}
+
 #NavSidebar {
     background: #1b1d21;
     border-right: 1px solid #33383f;
