@@ -266,11 +266,12 @@ def test_r2_page_label_spread(reader):
 
     reader._spread_active = False
     reader._update_page_label()
-    assert reader.page_label.text() == "16/200"
+    assert reader.page_label.text() == "16 / 200"
+    assert reader.page_input.text() == "16"
 
     reader._spread_active = True
     reader._update_page_label()
-    assert reader.page_label.text() == "16–17/200"  # 摊开显示左右页范围
+    assert reader.page_label.text() == "16–17 / 200"  # 摊开显示左右页范围
 
 
 def test_r2_narrow_window_disables_spread_option(reader, settings):

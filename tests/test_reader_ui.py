@@ -136,12 +136,17 @@ def test_toc_rows_show_number_and_visited_page(reader):
     )
     assert reader.toc_list.item(0).data(Qt.UserRole + 3) == "7"
     assert reader.toc_list.currentRow() == 0
-    assert reader.page_label.text() == "7/120"
+    assert reader.page_label.text() == "7 / 120"
 
 
 def test_bottom_bar_info_clock_and_remaining(reader, db, tmp_path):
-    assert reader.bottombar.height() == 40
+    from app.ui.widgets.ink_dot_progress import InkDotProgress
+
+    assert reader.bottombar.height() == 38
     assert reader.progress_slider is reader.progress
+    assert isinstance(reader.progress, InkDotProgress)
+    assert reader.battery.width() == 20
+    assert reader.page_input.objectName() == "ReaderPageInput"
     assert reader.font_stepper.value() == 19
     assert re.match(r"^\d{2}:\d{2}$", reader.clock_label.text())
 

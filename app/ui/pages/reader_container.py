@@ -84,7 +84,7 @@ from ..theme_tokens import PALETTES, THEME_KEYS, ReaderPalette, mix, palette_for
 from ..widgets.book_detail_overlay import BookDetailOverlay
 from ..widgets.icon_button import IconButton
 from ..widgets.reader_cover_card import ReaderCoverCard
-from ..widgets.segmented_progress import SegmentedProgress
+from ..widgets.ink_dot_progress import InkDotProgress
 from ..widgets.stepper import Stepper
 
 log = get_logger("reader")
@@ -336,6 +336,7 @@ def _reader_qss(theme: ReaderPalette) -> str:
     #ReaderTopBook {{ color: {theme.muted}; font-size: 11px; background: transparent; }}
     #ReaderTocMeta, #ReaderPageLabel, #ReaderRemaining, #ReaderClock, #ReaderSearchCount,
     #ReaderSectionTitle, #ReaderPrefsLabel {{ color: {theme.muted}; background: transparent; }}
+    QLineEdit#ReaderPageInput {{ color: {theme.ink}; background: {theme.page}; border: 1px solid {theme.border}; border-radius: 6px; padding: 1px 2px; selection-background-color: {theme.accent}; }}
     #ReaderPercent {{ color: {theme.ink}; background: transparent; font-weight: 600; }}
     QPushButton#ReaderIconButton {{ background: transparent; border: 0; border-radius: 9px; }}
     QPushButton#ReaderIconButton:hover {{ background: {hover}; }}
@@ -521,6 +522,40 @@ class _ClickableLabel(QLabel):
         super().mouseReleaseEvent(event)
 
 
+class _BatteryIcon(QWidget):
+    """底栏电池图标（自绘，电量 0–1）。"""
+
+    def __init__(self, level: float = 0.72, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(20, 10)
+        self._level = max(0.0, min(1.0, level))
+        self._color = QColor("#8b9099")
+
+    def set_level(self, level: float) -> None:
+        self._level = max(0.0, min(1.0, level))
+        self.update()
+
+    def apply_palette(self, palette) -> None:
+        self._color = QColor(palette.muted)
+        self.update()
+
+    def paintEvent(self, _event) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+        body_w, body_h = 16, 8
+        x, y = 0, 1
+        p.setPen(self._color)
+        p.setBrush(Qt.NoBrush)
+        p.drawRoundedRect(x, y, body_w, body_h, 2, 2)
+        p.setPen(Qt.NoPen)
+        p.setBrush(self._color)
+        p.drawRect(x + body_w, y + 2, 2, 4)  # 电极
+        fill_w = max(0, int((body_w - 2) * self._level))
+        if fill_w:
+            p.drawRoundedRect(x + 1, y + 1, fill_w, body_h - 2, 1, 1)
+        p.end()
+
+
 class ReaderContainer(QWidget):
     """阅读态整页容器；由主窗口在内容区切换显示。"""
 
@@ -600,7 +635,7 @@ class ReaderContainer(QWidget):
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
         # 顶底栏使用绝对定位；预留区域在显隐时保持不变，正文不会跳动。
-        root.setContentsMargins(0, 46, 0, 40)
+        root.setContentsMargins(0, 46, 0, 38)
         root.setSpacing(0)
         self.topbar = self._build_topbar()
         self.topbar.setParent(self)
@@ -1010,27 +1045,20 @@ class ReaderContainer(QWidget):
     def _build_bottom(self) -> QWidget:
         bar = QFrame()
         bar.setObjectName("ReaderBottomBar")
-        bar.setFixedHeight(40)
+        bar.setFixedHeight(38)
         layout = QHBoxLayout(bar)
-        layout.setContentsMargins(8, 0, 10, 0)
-        layout.setSpacing(8)
+        layout.setContentsMargins(14, 0, 14, 0)
+        layout.setSpacing(10)
 
-        self.prev_button = self._make_icon("prev_page", "上一页（←）", size=32)
-        self.prev_button.clicked.connect(self.prev_page)
-        layout.addWidget(self.prev_button)
-        self.next_button = self._make_icon("next_page", "下一页（→）", size=32)
-        self.next_button.clicked.connect(self.next_page)
-        layout.addWidget(self.next_button)
-
-        self.progress = SegmentedProgress()
+        self.progress = InkDotProgress()
         self.progress.sliderReleased.connect(self._on_slider)
         self.progress.valueChanged.connect(self._on_progress_preview)
         self.progress_slider = self.progress  # 兼容旧调用点
         layout.addWidget(self.progress, 1)
 
-        self.page_label = QLabel("第 — 页")
+        self.page_label = QLabel("— / —")
         self.page_label.setObjectName("ReaderPageLabel")
-        self.page_label.setMinimumWidth(56)
+        self.page_label.setMinimumWidth(64)
         self.page_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         layout.addWidget(self.page_label)
 
@@ -1039,18 +1067,41 @@ class ReaderContainer(QWidget):
         self.remaining_label.setToolTip("读几页后开始估算")
         layout.addWidget(self.remaining_label)
 
+        layout.addStretch(1)
+
         self.clock_label = QLabel("--:--")
         self.clock_label.setObjectName("ReaderClock")
         self.clock_label.setMinimumWidth(40)
         self.clock_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.clock_label)
 
+        self.battery = _BatteryIcon()
+        layout.addWidget(self.battery)
+
+        self.prev_button = self._make_icon("prev_page", "上一页（←）", size=28)
+        self.prev_button.clicked.connect(self.prev_page)
+        layout.addWidget(self.prev_button)
+
+        self.page_input = QLineEdit()
+        self.page_input.setObjectName("ReaderPageInput")
+        self.page_input.setFixedWidth(44)
+        self.page_input.setAlignment(Qt.AlignCenter)
+        self.page_input.setPlaceholderText("—")
+        self.page_input.returnPressed.connect(self._goto_page_input)
+        layout.addWidget(self.page_input)
+
+        self.next_button = self._make_icon("next_page", "下一页（→）", size=28)
+        self.next_button.clicked.connect(self.next_page)
+        layout.addWidget(self.next_button)
+
+        # 字号步进保留为隐藏实例：快捷键 / prefs 同步仍依赖它；
+        # 可见控件已移到顶栏 Aa 弹窗，T14/T17 接入阅读设置弹窗。
         self.font_stepper = Stepper(10, 40, 1, 19)
         self.font_stepper.setToolTip("字号（Ctrl+= / Ctrl+-）")
         self.font_stepper.changed.connect(
             lambda value: self._update_prefs(font_size=int(round(value)))
         )
-        layout.addWidget(self.font_stepper)
+        self.font_stepper.hide()
 
         self.prefs_popup = self._build_prefs_popup()
         return bar
@@ -2192,17 +2243,19 @@ class ReaderContainer(QWidget):
         self._highlight_toc(label, href)
 
     def _update_page_label(self) -> None:
-        """底栏页码：摊开时显示 16–17，单页显示 16。"""
+        """底栏页码：单页 `22 / 318`，摊开 `16–17 / 318`；同步页码输入框。"""
         page = int(self._location.get("page") or 0)
         total = int(self._location.get("total") or 0)
         if self._spread_active and page > 0:
             right = min(page + 1, total) if total else page + 1
-            text = f"{page}–{right}/{total}" if total else f"第 {page}–{right} 页"
+            text = f"{page}–{right} / {total}" if total else f"第 {page}–{right} 页"
         elif total:
-            text = f"{page}/{total}"
+            text = f"{page} / {total}"
         else:
             text = f"第 {page} 页"
         self.page_label.setText(text)
+        if hasattr(self, "page_input"):
+            self.page_input.setText(str(page) if page else "")
 
     def _on_spread_changed(self, book_id: int, active: bool) -> None:
         if book_id != self._book_id:
@@ -2223,12 +2276,27 @@ class ReaderContainer(QWidget):
         if not total:
             return
         page = max(1, min(total, int(round(value / 1000 * total))))
-        self.page_label.setText(f"{page}/{total}")
+        self.page_label.setText(f"{page} / {total}")
+        if hasattr(self, "page_input"):
+            self.page_input.setText(str(page))
 
     def _on_slider(self) -> None:
         if not self._web_enabled:
             return
         self.web.go_to_percent(self.progress.value() / 1000)
+
+    def _goto_page_input(self) -> None:
+        if not self._web_enabled:
+            return
+        total = int(self._location.get("total") or 0)
+        if total <= 0:
+            return
+        text = self.page_input.text().strip()
+        if not text.isdigit():
+            self.page_input.setText(str(int(self._location.get("page") or 0)))
+            return
+        page = max(1, min(total, int(text)))
+        self.web.go_to_percent((page - 1) / total)
 
     # ---- 剩余时间 ---------------------------------------------------
     def _average_page_seconds(self) -> float | None:
@@ -2642,6 +2710,8 @@ class ReaderContainer(QWidget):
         for button in self._icon_buttons:
             button.set_icon_color(theme.ink)
         self.progress.apply_palette(theme)
+        if hasattr(self, "battery"):
+            self.battery.apply_palette(theme)
         if hasattr(self, "cover_card"):
             self.cover_card.set_theme(theme)
             self._render_cover_thumb()

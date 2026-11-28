@@ -132,7 +132,7 @@ def test_r1_autohide_moves_both_bars_without_moving_body(reader):
     assert not reader.topbar.testAttribute(Qt.WA_TransparentForMouseEvents)
     assert not reader.bottombar.testAttribute(Qt.WA_TransparentForMouseEvents)
     assert reader._chrome_pos_anims["top"].endValue() == QPoint(0, 0)
-    assert reader._chrome_pos_anims["bottom"].endValue() == QPoint(0, 760)
+    assert reader._chrome_pos_anims["bottom"].endValue() == QPoint(0, 762)
     assert reader._chrome_hide_timer.interval() == 1600
     assert reader.splitter.geometry() == body_geometry
 
