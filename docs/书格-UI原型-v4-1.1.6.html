@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="paper" data-accent="blue">
+<head>
+<meta charset="utf-8">
+<title>书格 BookShelf 1.1.6 · UI 原型</title>
+<style>
+:root{
+  --bg:#efe9dd; --panel:#fffdf8; --panel-2:#f7f3ea;
+  --ink:#2b2a26; --muted:#8a8377; --line:#e2dac9; --line-2:#efe9dc;
+  --accent:#3b6ef5; --accent-soft:#e7edff; --accent-ink:#2b56c4;
+  --ok:#2e9e6b; --ok-soft:#e5f6ee; --warn:#c9772a; --warn-soft:#fdf0e2;
+  --bad:#c2453c; --bad-soft:#fbeae8;
+  --radius:10px; --radius-s:7px;
+  --shadow:0 1px 2px rgba(60,50,30,.06), 0 8px 24px rgba(60,50,30,.08);
+  --topbar:52px; --nav:236px; --detail:384px; --row:54px;
+  --serif:"Source Han Serif CN","Songti SC","SimSun",serif;
+  --sans:"Noto Sans SC","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+}
+html[data-theme="night"]{
+  --bg:#121417; --panel:#1a1e23; --panel-2:#20252b; --ink:#e9e5db; --muted:#8d949d;
+  --line:#2c333b; --line-2:#242a31; --accent:#6d93ff; --accent-soft:#23304d; --accent-ink:#a9c0ff;
+  --ok:#4fc08d; --ok-soft:#1d2f26; --warn:#e0a45c; --warn-soft:#2f2519;
+  --bad:#e0736a; --bad-soft:#31211f;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+}
+html[data-theme="gray"]{ --bg:#e9eaec; --panel:#fff; --panel-2:#f4f5f7; --line:#dcdee2; --ink:#26282c; --muted:#848a93; }
+html[data-accent="green"]{ --accent:#2f9e6e; --accent-soft:#e4f5ec; --accent-ink:#1d6f4c; }
+html[data-accent="purple"]{ --accent:#7a63d6; --accent-soft:#eeeaff; --accent-ink:#5642a8; }
+html[data-accent="amber"]{ --accent:#c88a2a; --accent-soft:#fbf0dc; --accent-ink:#8f5f13; }
+html[data-accent="rose"]{ --accent:#c95f7a; --accent-soft:#fce8ec; --accent-ink:#95405a; }
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 var(--sans);
+  -webkit-font-smoothing:antialiased}
+button,select,input{font:inherit;color:inherit}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted) 35%,transparent);border-radius:8px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- 外壳 ---------- */
+.app{height:100%;display:flex;flex-direction:column;background:var(--bg)}
+.topbar{height:var(--topbar);flex:none;display:flex;align-items:center;gap:10px;
+  padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line);z-index:20}
+.brand{display:flex;align-items:center;gap:8px;padding-right:6px;cursor:default}
+.brand .mark{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;
+  background:linear-gradient(150deg,var(--accent),color-mix(in srgb,var(--accent) 65%,#000 12%));
+  color:#fff;font:600 15px/1 var(--serif);letter-spacing:1px;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.brand .cn{font:600 15px/1.1 var(--serif);letter-spacing:2px}
+.brand .en{font:500 9.5px/1.1 var(--sans);letter-spacing:1.6px;text-transform:uppercase;color:var(--muted)}
+.divider{width:1px;height:22px;background:var(--line)}
+
+.seg{display:flex;align-items:center;background:var(--panel-2);border:1px solid var(--line);
+  border-radius:9px;padding:2px;gap:2px}
+.seg button{border:0;background:transparent;padding:5px 10px;border-radius:7px;cursor:pointer;
+  color:var(--muted);font-size:12.5px;display:flex;gap:5px;align-items:center}
+.seg button:hover{color:var(--ink);background:color-mix(in srgb,var(--panel) 70%,transparent)}
+.seg button.on{background:var(--panel);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+.search{flex:1;max-width:360px;height:30px;display:flex;align-items:center;gap:7px;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:0 9px}
+.search input{border:0;background:transparent;outline:none;width:100%;font-size:12.5px}
+.search input::placeholder{color:var(--muted)}
+.spacer{flex:1}
+.iconbtn{width:30px;height:30px;border-radius:8px;border:1px solid transparent;background:transparent;
+  display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.iconbtn:hover{background:var(--panel-2);color:var(--ink);border-color:var(--line)}
+
+.bodyarea{flex:1;display:flex;min-height:0}
+
+/* ---------- 左导航 ---------- */
+.sidenav{width:var(--nav);flex:none;background:var(--panel);border-right:1px solid var(--line);
+  padding:12px 10px;overflow:auto}
+.navlabel{font-size:10.5px;letter-spacing:1.5px;color:var(--muted);margin:14px 10px 6px;text-transform:uppercase}
+.navlabel:first-child{margin-top:2px}
+.navitem{display:flex;align-items:center;gap:9px;height:32px;padding:0 10px;border-radius:8px;
+  cursor:pointer;color:var(--muted);font-size:12.5px;position:relative}
+.navitem:hover{background:var(--panel-2);color:var(--ink)}
+.navitem.on{background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.navitem.on::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;
+  border-radius:3px;background:var(--accent)}
+.navitem .ic{width:16px;height:16px;flex:none;opacity:.9}
+.navitem .cnt{margin-left:auto;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.navitem.on .cnt{color:var(--accent-ink)}
+
+/* ---------- 主区 ---------- */
+.content{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.view{flex:1;min-height:0;display:none;flex-direction:column;padding:14px 16px}
+.view.on{display:flex}
+
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex:none}
+.btn{height:30px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+  color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:12.5px}
+.btn:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));color:var(--accent-ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btn.primary:hover{filter:brightness(.96);color:#fff}
+.btn.ghost{background:transparent}
+.chipbar{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:12px}
+.chip{height:26px;padding:0 10px;border-radius:20px;border:1px solid var(--line);background:var(--panel);
+  font-size:12px;color:var(--muted);cursor:pointer}
+.chip.on{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 40%,var(--line));color:var(--accent-ink)}
+
+/* ---------- 表格 ---------- */
+.tablewrap{flex:1;min-height:0;overflow:auto;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{position:sticky;top:0;z-index:2;background:var(--panel-2);text-align:left;font-weight:600;
+  color:var(--muted);font-size:11.5px;letter-spacing:.4px;padding:9px 10px;border-bottom:1px solid var(--line);
+  white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{color:var(--ink)}
+thead th .arrow{opacity:.35;font-size:9px;margin-left:4px}
+thead th.sorted{color:var(--accent-ink)}
+thead th.sorted .arrow{opacity:1}
+tbody tr{border-bottom:1px solid var(--line-2);cursor:pointer}
+tbody tr:hover{background:var(--panel-2)}
+tbody tr.on{background:var(--accent-soft)}
+tbody td{padding:7px 10px;vertical-align:middle}
+td.check{width:34px}
+.cb{width:14px;height:14px;border:1px solid var(--line);border-radius:4px;background:var(--panel);
+  display:inline-block;position:relative;cursor:pointer}
+tr.on .cb{background:var(--accent);border-color:var(--accent)}
+tr.on .cb::after{content:"";position:absolute;left:3.5px;top:1px;width:5px;height:9px;
+  border:2px solid #fff;border-top:0;border-left:0;transform:rotate(42deg)}
+.bookcell{display:flex;align-items:center;gap:10px;min-width:220px}
+.thumb{width:28px;height:38px;border-radius:3px;flex:none;background:var(--panel-2);
+  border:1px solid var(--line);display:grid;place-items:center;font:600 10px/1 var(--serif);
+  color:var(--muted);overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.bookcell .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:360px}
+.bookcell .a{color:var(--muted);font-size:11.5px;margin-top:1px}
+.badge{display:inline-block;padding:1px 6px;border-radius:5px;font-size:11px;font-weight:600;letter-spacing:.3px}
+.badge.epub{background:#e8f0ff;color:#2f62c9}
+.badge.pdf{background:#fbeae8;color:#b83c33}
+.badge.ok{background:var(--ok-soft);color:var(--ok)}
+.badge.wait{background:var(--warn-soft);color:var(--warn)}
+.badge.fail{background:var(--bad-soft);color:var(--bad)}
+.num{font-variant-numeric:tabular-nums;color:var(--muted)}
+.progress{width:78px;height:5px;border-radius:4px;background:var(--line-2);overflow:hidden;display:inline-block;vertical-align:middle}
+.progress i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.loadmore{margin:10px auto 2px;display:block}
+
+/* ---------- 详情面板 ---------- */
+.detail{width:var(--detail);flex:none;background:var(--panel);border-left:1px solid var(--line);
+  display:flex;flex-direction:column;overflow:auto}
+.detail.hidden{display:none}
+.dtop{padding:16px 16px 12px;display:flex;gap:12px;border-bottom:1px solid var(--line-2)}
+.cover{width:76px;height:106px;border-radius:6px;flex:none;border:1px solid var(--line);
+  box-shadow:0 4px 14px rgba(60,50,30,.18);background:linear-gradient(160deg,#f4e7d3,#dbc9ae);
+  display:grid;place-items:center;color:#7a6a55;font:600 12px/1.4 var(--serif);text-align:center;padding:8px}
+.dtitle{font:600 15px/1.35 var(--serif);margin:0 0 4px}
+.dauthor{color:var(--muted);font-size:12px}
+.dchips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.sec{padding:12px 16px;border-bottom:1px solid var(--line-2)}
+.sechd{font-size:10.5px;letter-spacing:1.4px;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+.kv{display:grid;grid-template-columns:76px 1fr;row-gap:6px;font-size:12px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;word-break:break-all}
+.pathbox{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;
+  font-size:11.5px;line-height:1.7;word-break:break-all}
+.pathbox b{color:var(--muted);font-weight:500;font-size:10.5px;letter-spacing:.6px}
+.pathbox .new{color:var(--accent-ink)}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 16px}
+.actions .btn{justify-content:center}
+.actions .btn.primary{grid-column:1 / -1;height:34px}
+
+/* ---------- 书架 ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;overflow:auto;padding-bottom:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer;
+  transition:transform .16s ease, box-shadow .16s ease, border-color .16s}
+.card:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+.card .c{height:150px;border-radius:8px;display:grid;place-items:center;font:600 13px/1.5 var(--serif);
+  color:#6c5f4b;background:linear-gradient(160deg,#f2e6d2,#d9c8ae);margin-bottom:10px;text-align:center;padding:10px}
+.card .n{font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .m{color:var(--muted);font-size:11.5px;margin-top:2px;display:flex;justify-content:space-between;gap:6px}
+.star{color:var(--warn)}
+
+/* ---------- 统计 / 笔记 ---------- */
+.statrow{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.stat .l{color:var(--muted);font-size:11.5px}
+.stat .v{font:600 22px/1.2 var(--serif);margin-top:4px;font-variant-numeric:tabular-nums}
+.stat .s{color:var(--muted);font-size:11px;margin-top:2px}
+.panelbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;flex:1;min-height:0;overflow:auto}
+.bars{display:flex;align-items:flex-end;gap:10px;height:150px;padding-top:8px}
+.bars .b{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px}
+.bars .b i{display:block;width:100%;border-radius:6px 6px 0 0;background:linear-gradient(180deg,var(--accent),color-mix(in srgb,var(--accent) 60%,#fff))}
+.bars .b span{font-size:11px;color:var(--muted)}
+.notelist{display:flex;flex-direction:column;gap:10px}
+.note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:10px 12px}
+.note .h{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:4px}
+.note .q{font-family:var(--serif);font-size:13px;background:var(--accent-soft);color:var(--accent-ink);
+  padding:1px 4px;border-radius:3px;display:inline}
+.note .b{margin-top:6px;font-size:12.5px;line-height:1.65}
+
+/* ---------- 设置 ---------- */
+.settings{display:grid;grid-template-columns:190px 1fr;gap:18px;align-items:start}
+.stabs{position:sticky;top:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px}
+.stabs div{padding:8px 10px;border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--muted)}
+.stabs div:hover{background:var(--panel-2);color:var(--ink)}
+.stabs div.on{background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.gcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px 16px;margin-bottom:14px}
+.row{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line-2)}
+.row:last-child{border-bottom:0}
+.row .k{width:150px;flex:none}
+.row .k b{display:block;font-size:12.5px}
+.row .k span{color:var(--muted);font-size:11px}
+.row .v{flex:1;display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+select,input[type=text]{height:30px;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+  padding:0 8px;min-width:150px;font-size:12.5px}
+input[type=range]{width:180px;accent-color:var(--accent)}
+.toggle{width:42px;height:24px;border-radius:14px;background:var(--line);position:relative;cursor:pointer;transition:.15s;flex:none}
+.toggle::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle.on{background:var(--accent)}
+.toggle.on::after{left:21px}
+.swatches{display:flex;gap:8px}
+.sw{width:26px;height:26px;border-radius:8px;cursor:pointer;border:2px solid transparent}
+.sw.on{border-color:var(--ink)}
+.themecard{display:flex;gap:8px}
+.tc{width:88px;border:1px solid var(--line);border-radius:10px;padding:8px;cursor:pointer;background:var(--panel)}
+.tc.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.tc .p{height:44px;border-radius:6px;border:1px solid var(--line)}
+.tc span{display:block;font-size:11px;color:var(--muted);margin-top:6px;text-align:center}
+.fontprev{padding:10px 12px;border:1px dashed var(--line);border-radius:10px;margin-top:8px;background:var(--panel-2);
+  font-family:var(--serif);font-size:15px;line-height:1.9;color:var(--ink)}
+
+/* ---------- 底栏 / 批量条 / toast ---------- */
+.statusbar{height:26px;flex:none;display:flex;align-items:center;gap:14px;padding:0 12px;
+  background:var(--panel);border-top:1px solid var(--line);color:var(--muted);font-size:11px}
+.batchbar{position:fixed;left:50%;bottom:44px;transform:translate(-50%,20px);opacity:0;pointer-events:none;
+  display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;background:var(--panel);
+  border:1px solid var(--line);box-shadow:var(--shadow);transition:.18s ease;z-index:30}
+.batchbar.show{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+.batchbar .sel{font-weight:600;margin-right:6px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,14px);opacity:0;
+  background:var(--ink);color:var(--panel);padding:8px 14px;border-radius:9px;font-size:12.5px;
+  transition:.2s;pointer-events:none;z-index:40}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 顶栏 -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark">书</div>
+      <div>
+        <div class="cn">书格</div>
+        <div class="en">BookShelf</div>
+      </div>
+    </div>
+    <div class="divider"></div>
+
+    <div class="seg">
+      <button data-act="scan">扫描新书</button>
+      <button data-act="lib">书库</button>
+      <button data-act="meta">识别元数据</button>
+      <button data-act="preview">整理预览</button>
+    </div>
+    <button class="btn primary" data-act="run">执行整理</button>
+
+    <div class="spacer"></div>
+    <div class="search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+      <input placeholder="搜索书名 / 作者 / ISBN / 标签">
+    </div>
+    <div class="seg" id="viewseg">
+      <button class="on" data-view="library">列表</button>
+      <button data-view="shelf">网格</button>
+    </div>
+    <button class="iconbtn" data-nav="settings" title="设置">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 01-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 01-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 012.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.6V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 012.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.6 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.6 1z"/></svg>
+    </button>
+  </header>
+
+  <div class="bodyarea">
+    <!-- 左导航 -->
+    <nav class="sidenav">
+      <div class="navlabel">书库</div>
+      <div class="navitem on" data-nav="library"><span class="ic">▤</span>全部书籍<span class="cnt">1872</span></div>
+      <div class="navitem" data-nav="library"><span class="ic">◷</span>待整理<span class="cnt">212</span></div>
+      <div class="navitem" data-nav="library"><span class="ic">✓</span>已归档<span class="cnt">1237</span></div>
+      <div class="navitem" data-nav="library"><span class="ic">!</span>识别失败<span class="cnt">124</span></div>
+
+      <div class="navlabel">分类</div>
+      <div class="navitem" data-nav="library"><span class="ic">◍</span>作者<span class="cnt">318</span></div>
+      <div class="navitem" data-nav="library"><span class="ic">❏</span>系列<span class="cnt">42</span></div>
+      <div class="navitem" data-nav="library"><span class="ic">▣</span>文件夹</div>
+      <div class="navitem" data-nav="library"><span class="ic">#</span>标签</div>
+      <div class="navitem" data-nav="library"><span class="ic">★</span>收藏<span class="cnt">36</span></div>
+
+      <div class="navlabel">阅读</div>
+      <div class="navitem" data-nav="shelf"><span class="ic">▦</span>我的书架</div>
+      <div class="navitem" data-nav="stats"><span class="ic">◔</span>阅读统计</div>
+      <div class="navitem" data-nav="notes"><span class="ic">✎</span>笔记与高亮<span class="cnt">58</span></div>
+
+      <div class="navlabel">其他</div>
+      <div class="navitem" data-nav="settings"><span class="ic">⚙</span>设置</div>
+      <div class="navitem" data-nav="help"><span class="ic">?</span>帮助</div>
+    </nav>
+
+    <!-- 内容 -->
+    <main class="content">
+
+      <!-- 书库 -->
+      <section class="view on" id="view-library">
+        <div class="toolbar">
+          <div class="chipbar">
+            <button class="chip on">全部格式</button>
+            <button class="chip">EPUB</button>
+            <button class="chip">PDF</button>
+            <button class="chip">待整理</button>
+            <button class="chip">识别失败</button>
+          </div>
+          <div class="spacer"></div>
+          <button class="btn ghost">导出清单</button>
+          <button class="btn">列设置</button>
+        </div>
+        <div class="tablewrap">
+          <table id="booktable">
+            <thead>
+              <tr>
+                <th class="check"><span class="cb" id="allcb"></span></th>
+                <th data-sort="title">书名 / 作者<span class="arrow">▲</span></th>
+                <th data-sort="format" style="width:74px">格式<span class="arrow">▲</span></th>
+                <th data-sort="isbn" style="width:132px">ISBN<span class="arrow">▲</span></th>
+                <th data-sort="progress" style="width:104px">进度<span class="arrow">▲</span></th>
+                <th data-sort="size" style="width:96px">大小<span class="arrow">▲</span></th>
+                <th data-sort="added" style="width:112px" class="sorted">添加时间<span class="arrow">▲</span></th>
+                <th style="width:96px">状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="on">
+                <td class="check"><span class="cb"></span></td>
+                <td><div class="bookcell"><div class="thumb">情绪</div><div><div class="t">情绪操控术：走出困境的心理策略</div><div class="a">龙柒 · 新世界出版社 · 2011</div></div></div></td>
+                <td><span class="badge epub">EPUB</span></td>
+                <td class="num">978-7-5104-1798-6</td>
+                <td><span class="progress"><i style="width:14%"></i></span> <span class="num">14%</span></td>
+                <td class="num">369.5 KB</td>
+                <td class="num">11-27 22:14</td>
+                <td><span class="badge ok">已归档</span></td>
+              </tr>
+              <tr>
+                <td class="check"><span class="cb"></span></td>
+                <td><div class="bookcell"><div class="thumb">心理</div><div><div class="t">心理学大纲</div><div class="a">1832- · 译者不详</div></div></div></td>
+                <td><span class="badge epub">EPUB</span></td>
+                <td class="num">—</td>
+                <td><span class="progress"><i style="width:0%"></i></span> <span class="num">未读</span></td>
+                <td class="num">1.2 MB</td>
+                <td class="num">11-27 21:58</td>
+                <td><span class="badge wait">待整理</span></td>
+              </tr>
+              <tr>
+                <td class="check"><span class="cb"></span></td>
+                <td><div class="bookcell"><div class="thumb">扶桑</div><div><div class="t">扶桑</div><div class="a">严歌苓</div></div></div></td>
+                <td><span class="badge epub">EPUB</span></td>
+                <td class="num">978-7-5327-6015-5</td>
+                <td><span class="progress"><i style="width:62%"></i></span> <span class="num">62%</span></td>
+                <td class="num">2.4 MB</td>
+                <td class="num">11-27 20:31</td>
+                <td><span class="badge ok">已归档</span></td>
+              </tr>
+              <tr>
+                <td class="check"><span class="cb"></span></td>
+                <td><div class="bookcell"><div class="thumb">宋元</div><div><div class="t">孙真人备急千金要方</div><div class="a">孙思邈[唐] · 影印本</div></div></div></td>
+                <td><span class="badge pdf">PDF</span></td>
+                <td class="num">—</td>
+                <td><span class="progress"><i style="width:0%"></i></span> <span class="num">未读</span></td>
+                <td class="num">46.8 MB</td>
+                <td class="num">11-27 19:02</td>
+                <td><span class="badge fail">识别失败</span></td>
+              </tr>
+              <tr>
+                <td class="check"><span class="cb"></span></td>
+                <td><div class="bookcell"><div class="thumb">春秋</div><div><div class="t">其实我们一直活在春秋战国</div><div class="a">龙镇 · 中信出版社 · 2013</div></div></div></td>
+                <td><span class="badge epub">EPUB</span></td>
+                <td class="num">978-7-5399-4949-3</td>
+                <td><span class="progress"><i style="width:100%"></i></span> <span class="num">已读完</span></td>
+                <td class="num">3.1 MB</td>
+                <td class="num">11-26 23:40</td>
+                <td><span class="badge ok">已归档</span></td>
+              </tr>
+              <tr>
+                <td class="check"><span class="cb"></span></td>
+                <td><div class="bookcell"><div class="thumb">酒局</div><div><div class="t">酒局中的应酬潜规则</div><div class="a">龙柒</div></div></div></td>
+                <td><span class="badge epub">EPUB</span></td>
+                <td class="num">978-7-5146-0140-8</td>
+                <td><span class="progress"><i style="width:38%"></i></span> <span class="num">38%</span></td>
+                <td class="num">1.9 MB</td>
+                <td class="num">11-26 22:07</td>
+                <td><span class="badge ok">已归档</span></td>
+              </tr>
+              <tr>
+                <td class="check"><span class="cb"></span></td>
+                <td><div class="bookcell"><div class="thumb">胡适</div><div><div class="t">活学曾国藩活用胡雪岩</div><div class="a">龙柒</div></div></div></td>
+                <td><span class="badge epub">EPUB</span></td>
+                <td class="num">978-7-8022-0440-3</td>
+                <td><span class="progress"><i style="width:22%"></i></span> <span class="num">22%</span></td>
+                <td class="num">2.2 MB</td>
+                <td class="num">11-26 21:15</td>
+                <td><span class="badge ok">已归档</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <button class="btn loadmore">加载更多（已显示 200 / 1872 本）</button>
+        </div>
+      </section>
+
+      <!-- 书架 -->
+      <section class="view" id="view-shelf">
+        <div class="toolbar">
+          <div class="seg">
+            <button class="on">全部</button><button>在读</button><button>想读</button><button>已读</button>
+          </div>
+          <div class="spacer"></div>
+          <select><option>按阅读进度</option><option>按添加时间</option><option>按书名</option><option>按作者</option><option>按文件大小</option></select>
+          <button class="btn">升序 ↑</button>
+        </div>
+        <div class="grid">
+          <div class="card"><div class="c">情绪操控术<br>走出困境的心理策略</div><div class="n">情绪操控术</div><div class="m"><span>龙柒</span><span class="star">★</span></div><div class="progress" style="width:100%;margin-top:8px"><i style="width:14%"></i></div></div>
+          <div class="card"><div class="c">扶桑</div><div class="n">扶桑</div><div class="m"><span>严歌苓</span><span class="star">★</span></div><div class="progress" style="width:100%;margin-top:8px"><i style="width:62%"></i></div></div>
+          <div class="card"><div class="c">太白金星有点烦</div><div class="n">太白金星有点烦</div><div class="m"><span>马伯庸</span><span class="star">☆</span></div><div class="progress" style="width:100%;margin-top:8px"><i style="width:7%"></i></div></div>
+          <div class="card"><div class="c">其实我们一直<br>活在春秋战国</div><div class="n">其实我们一直活在春秋战国</div><div class="m"><span>龙镇</span><span class="star">★</span></div><div class="progress" style="width:100%;margin-top:8px"><i style="width:100%"></i></div></div>
+          <div class="card"><div class="c">酒局中的<br>应酬潜规则</div><div class="n">酒局中的应酬潜规则</div><div class="m"><span>龙柒</span><span class="star">☆</span></div><div class="progress" style="width:100%;margin-top:8px"><i style="width:38%"></i></div></div>
+          <div class="card"><div class="c">亲爱的安德烈</div><div class="n">亲爱的安德烈</div><div class="m"><span>龙应台</span><span class="star">★</span></div><div class="progress" style="width:100%;margin-top:8px"><i style="width:51%"></i></div></div>
+        </div>
+      </section>
+
+      <!-- 统计 -->
+      <section class="view" id="view-stats">
+        <div class="statrow">
+          <div class="stat"><div class="l">本月阅读</div><div class="v">12.4 h</div><div class="s">比上月 +3.1 h</div></div>
+          <div class="stat"><div class="l">已读完</div><div class="v">7 本</div><div class="s">累计 41 本</div></div>
+          <div class="stat"><div class="l">平均每天</div><div class="v">41 min</div><div class="s">连续 9 天</div></div>
+          <div class="stat"><div class="l">速度</div><div class="v">1.8 min/页</div><div class="s">近 30 天</div></div>
+        </div>
+        <div class="panelbox">
+          <div class="sechd">近 12 个月阅读时长（小时）</div>
+          <div class="bars">
+            <div class="b"><i style="height:38%"></i><span>12</span></div>
+            <div class="b"><i style="height:52%"></i><span>1</span></div>
+            <div class="b"><i style="height:30%"></i><span>2</span></div>
+            <div class="b"><i style="height:64%"></i><span>3</span></div>
+            <div class="b"><i style="height:46%"></i><span>4</span></div>
+            <div class="b"><i style="height:72%"></i><span>5</span></div>
+            <div class="b"><i style="height:58%"></i><span>6</span></div>
+            <div class="b"><i style="height:35%"></i><span>7</span></div>
+            <div class="b"><i style="height:69%"></i><span>8</span></div>
+            <div class="b"><i style="height:81%"></i><span>9</span></div>
+            <div class="b"><i style="height:55%"></i><span>10</span></div>
+            <div class="b"><i style="height:92%"></i><span>11</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 笔记 -->
+      <section class="view" id="view-notes">
+        <div class="toolbar">
+          <div class="seg"><button class="on">全部 58</button><button>高亮 41</button><button>书签 9</button><button>想法 8</button></div>
+          <div class="spacer"></div>
+          <select><option>按时间倒序</option><option>按书籍</option></select>
+        </div>
+        <div class="panelbox">
+          <div class="notelist">
+            <div class="note"><div class="h"><span>情绪操控术 · 第 1 章</span><span>今天 22:41</span></div>
+              <div><span class="q">掉剪掉，枯枝反而培育起来呢？</span></div>
+              <div class="b">这段园丁的比喻其实是在讲情绪修剪——不是压抑，而是把注意力从枯枝移到肥沃的土壤。</div></div>
+            <div class="note"><div class="h"><span>太白金星有点烦 · 第三章</span><span>昨天 23:12</span></div>
+              <div><span class="q">观音见李长庚久久不回话，知道他心里愤愤</span></div>
+              <div class="b">全书最喜欢的一段对话，职场感十足。</div></div>
+            <div class="note"><div class="h"><span>扶桑 · 第七章</span><span>11-25</span></div>
+              <div><span class="q">她像一匹被驯服的马，安静地站着</span></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 设置 -->
+      <section class="view" id="view-settings">
+        <div class="settings">
+          <div class="stabs" id="stabs">
+            <div class="on">外观与主题</div>
+            <div>阅读设置</div>
+            <div>书库与整理</div>
+            <div>识别来源</div>
+            <div>字体</div>
+            <div>关于</div>
+          </div>
+          <div id="stabbody">
+            <div class="gcard">
+              <div class="row"><div class="k"><b>界面主题</b><span>库页与设置页配色</span></div>
+                <div class="v themecard">
+                  <div class="tc on" data-theme-set="paper"><div class="p" style="background:#f7f2e7"></div><span>纸白</span></div>
+                  <div class="tc" data-theme-set="gray"><div class="p" style="background:#e9eaec"></div><span>灰调</span></div>
+                  <div class="tc" data-theme-set="night"><div class="p" style="background:#121417"></div><span>夜间</span></div>
+                </div>
+              </div>
+              <div class="row"><div class="k"><b>强调色</b><span>按钮、选中、进度</span></div>
+                <div class="v swatches">
+                  <div class="sw on" style="background:#3b6ef5" data-accent-set="blue"></div>
+                  <div class="sw" style="background:#2f9e6e" data-accent-set="green"></div>
+                  <div class="sw" style="background:#7a63d6" data-accent-set="purple"></div>
+                  <div class="sw" style="background:#c88a2a" data-accent-set="amber"></div>
+                  <div class="sw" style="background:#c95f7a" data-accent-set="rose"></div>
+                </div>
+              </div>
+              <div class="row"><div class="k"><b>界面密度</b><span>表格行高与留白</span></div>
+                <div class="v"><div class="seg"><button class="on">舒适</button><button>紧凑</button><button>宽松</button></div></div>
+              </div>
+              <div class="row"><div class="k"><b>顶部工具栏</b><span>扫书/整理按钮</span></div>
+                <div class="v"><div class="seg"><button class="on">图标+文字</button><button>仅图标</button></div></div>
+              </div>
+              <div class="row"><div class="k"><b>书封显示</b><span>列表与书架</span></div>
+                <div class="v"><div class="toggle on"></div></div>
+              </div>
+            </div>
+
+            <div class="gcard">
+              <div class="row"><div class="k"><b>翻页方式</b><span>阅读界面</span></div>
+                <div class="v"><div class="seg"><button class="on">单页</button><button>双页（摊开）</button></div></div>
+              </div>
+              <div class="row"><div class="k"><b>阅读模式</b><span>滚动或整页翻动</span></div>
+                <div class="v"><div class="seg"><button class="on">翻页</button><button>滚动</button></div></div>
+              </div>
+              <div class="row"><div class="k"><b>自动翻页</b><span>专注时按秒推进</span></div>
+                <div class="v"><div class="toggle"></div><input type="text" value="30 秒" style="min-width:70px"></div>
+              </div>
+              <div class="row"><div class="k"><b>进度与时钟</b><span>底栏显示</span></div>
+                <div class="v">剩余时间 <div class="toggle on"></div> 时钟 <div class="toggle on"></div></div>
+              </div>
+              <div class="row"><div class="k"><b>高亮颜色</b><span>五色可自定义</span></div>
+                <div class="v swatches">
+                  <div class="sw" style="background:#f2c14e"></div>
+                  <div class="sw" style="background:#d99c98"></div>
+                  <div class="sw" style="background:#9cc39a"></div>
+                  <div class="sw" style="background:#8fb3d9"></div>
+                  <div class="sw" style="background:#b6a4d9"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="gcard">
+              <div class="row"><div class="k"><b>书库目录</b><span>扫描来源</span></div>
+                <div class="v"><input type="text" value="E:\BookShelfData" style="min-width:320px"><button class="btn">浏览</button></div>
+              </div>
+              <div class="row"><div class="k"><b>归档目录</b><span>整理后文件位置</span></div>
+                <div class="v"><input type="text" value="E:\BookShelfData\归档" style="min-width:320px"><button class="btn">浏览</button></div>
+              </div>
+              <div class="row"><div class="k"><b>命名模板</b><span>支持 12 个变量</span></div>
+                <div class="v"><input type="text" value="{作者} - {书名}{卷号} ({年份}).{扩展名}" style="min-width:340px"></div>
+              </div>
+              <div class="row"><div class="k"><b>整理方式</b><span>复制或移动</span></div>
+                <div class="v"><div class="seg"><button>复制</button><button class="on">移动并重命名</button></div></div>
+              </div>
+              <div class="row"><div class="k"><b>同名冲突</b><span>已存在时</span></div>
+                <div class="v"><select><option>自动追加 (2)(3)</option><option>覆盖</option><option>跳过</option></select></div>
+              </div>
+            </div>
+
+            <div class="gcard">
+              <div class="row"><div class="k"><b>豆瓣读书</b><span>按 ISBN 直达</span></div><div class="v"><div class="toggle on"></div></div></div>
+              <div class="row"><div class="k"><b>Crossref</b><span>DOI 学术元数据</span></div><div class="v"><div class="toggle on"></div></div></div>
+              <div class="row"><div class="k"><b>孔夫子旧书网</b><span>中文旧书</span></div><div class="v"><div class="toggle on"></div></div></div>
+              <div class="row"><div class="k"><b>OpenLibrary</b><span>英文书目</span></div><div class="v"><div class="toggle"></div></div></div>
+              <div class="row"><div class="k"><b>请求节流</b><span>每秒请求数</span></div><div class="v"><input type="range" min="1" max="6" value="2"><span class="num">2 次/秒</span></div></div>
+            </div>
+
+            <div class="gcard">
+              <div class="row"><div class="k"><b>中文字体</b><span>内嵌 4 套</span></div>
+                <div class="v"><select><option>霞鹜文楷</option><option>思源宋体</option><option>霞鹜新明</option><option>Noto Sans SC</option></select></div>
+              </div>
+              <div class="row"><div class="k"><b>英文字体</b><span>内嵌 4 套</span></div>
+                <div class="v"><select><option>Literata</option><option>EB Garamond</option><option>Source Serif 4</option><option>Inter</option></select></div>
+              </div>
+              <div class="fontprev">情绪操控术：走出困境的心理策略 —— 掉剪掉，枯枝反而培育起来呢？<br>
+                <span style="font-family:Literata,serif">The Emotional Craft of Writing — a quiet, deliberate rhythm.</span></div>
+              <div class="row"><div class="k"><b>字号 / 行距</b><span>阅读默认值</span></div>
+                <div class="v">23 px <input type="range" min="16" max="34" value="23"> 行距 <input type="range" min="1.4" max="2.4" step="0.1" value="1.8"></div>
+              </div>
+            </div>
+
+            <div class="gcard">
+              <div class="row"><div class="k"><b>书格 BookShelf</b><span>版本 1.1.6</span></div>
+                <div class="v"><button class="btn">检查更新</button><button class="btn ghost">开源许可</button></div>
+              </div>
+              <div class="row"><div class="k"><b>数据目录</b><span>书目与设置</span></div>
+                <div class="v"><span class="num">C:\Users\laisy\AppData\Roaming\BookShelf</span><button class="btn">打开</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 详情面板 -->
+    <aside class="detail" id="detail">
+      <div class="dtop">
+        <div class="cover">情绪操控术<br>走出困境的<br>心理策略</div>
+        <div>
+          <div class="dtitle">情绪操控术：走出困境的心理策略</div>
+          <div class="dauthor">龙柒 · 新世界出版社 · 2011-06</div>
+          <div class="dchips">
+            <span class="badge epub">EPUB</span>
+            <span class="badge ok">已归档</span>
+            <span class="badge" style="background:var(--accent-soft);color:var(--accent-ink)">心理学</span>
+          </div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sechd">元数据</div>
+        <dl class="kv">
+          <dt>出版社</dt><dd>新世界出版社</dd>
+          <dt>出版日期</dt><dd>2011-06</dd>
+          <dt>语言</dt><dd>zh-CN</dd>
+          <dt>页数</dt><dd>324</dd>
+          <dt>ISBN</dt><dd>9787510417986</dd>
+          <dt>文件大小</dt><dd>369.5 KB</dd>
+          <dt>系列</dt><dd>—</dd>
+          <dt>阅读进度</dt><dd>14% · 剩余约 4 小时</dd>
+        </dl>
+      </div>
+      <div class="sec">
+        <div class="sechd">文件路径</div>
+        <div class="pathbox">
+          <b>数据文件</b><br>F:\Book\<span>龙柒 - 情绪操控术.epub</span><br>
+          <b>归档路径</b><br><span class="new">E:\BookShelfData\归档\龙柒 - 情绪操控术 (2011).epub</span>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sechd">简介</div>
+        <div style="font-size:12.5px;line-height:1.75;color:var(--muted)">本书从情绪识别、情绪命名到情绪转化，给出 110 个可直接套用的情绪管理建议……</div>
+      </div>
+      <div class="actions">
+        <button class="btn primary">在新窗口阅读</button>
+        <button class="btn">编辑元数据</button>
+        <button class="btn">重新检索</button>
+        <button class="btn">打开所在文件夹</button>
+        <button class="btn">加入收藏</button>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="statusbar">
+    <span>书库：E:\BookShelfData · 1872 本</span>
+    <span>数据目录：%APPDATA%\BookShelf</span>
+    <span class="spacer" style="flex:1"></span>
+    <span>数据库 v5 · 索引正常</span>
+  </footer>
+
+  <div class="batchbar" id="batchbar">
+    <span class="sel">已选 <b id="selcount">1</b> 本</span>
+    <button class="btn">批量归档</button>
+    <button class="btn">移动到…</button>
+    <button class="btn">重新识别</button>
+    <button class="btn ghost">导出清单</button>
+    <button class="iconbtn" id="clearsel">✕</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+/* 视图切换 */
+function showView(name){
+  $$('.view').forEach(v => v.classList.remove('on'));
+  const v = $('#view-' + name) || $('#view-library');
+  v.classList.add('on');
+  const detail = $('#detail');
+  detail.classList.toggle('hidden', !['library','shelf'].includes(name));
+  $$('.navitem').forEach(n => n.classList.toggle('on', n.dataset.nav === name));
+  if(name === 'settings'){
+    $$('.navitem').forEach(n => n.classList.toggle('on', n.dataset.nav === 'settings'));
+  }
+  if(['library','shelf'].includes(name) && !window.__keepDetail) detail.classList.remove('hidden');
+}
+$$('.navitem').forEach(n => n.addEventListener('click', () => showView(n.dataset.nav)));
+$$('#viewseg button').forEach(b => b.addEventListener('click', () => {
+  $$('#viewseg button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  showView(b.dataset.view);
+}));
+$$('[data-nav="settings"]').forEach(b => b.addEventListener('click', () => showView('settings')));
+
+/* 行选中 + 批量条 */
+function refreshBatch(){
+  const n = $$('tbody tr.on').length;
+  $('#selcount').textContent = n;
+  $('#batchbar').classList.toggle('show', n > 0);
+}
+$$('tbody tr').forEach(tr => tr.addEventListener('click', e => {
+  if(e.target.classList.contains('cb')) return;
+  $$('tbody tr').forEach(x => x.classList.remove('on'));
+  tr.classList.add('on'); refreshBatch();
+}));
+$$('tbody tr .cb').forEach(cb => cb.addEventListener('click', e => {
+  e.stopPropagation();
+  cb.closest('tr').classList.toggle('on'); refreshBatch();
+}));
+$('#allcb')?.addEventListener('click', () => {
+  const all = $$('tbody tr');
+  const on = all.every(tr => tr.classList.contains('on'));
+  all.forEach(tr => tr.classList.toggle('on', !on));
+  refreshBatch();
+});
+$('#clearsel')?.addEventListener('click', () => {
+  $$('tbody tr').forEach(tr => tr.classList.remove('on')); refreshBatch();
+});
+
+/* 排序 */
+$$('thead th[data-sort]').forEach(th => th.addEventListener('click', () => {
+  $$('thead th').forEach(x => x.classList.remove('sorted'));
+  th.classList.add('sorted');
+  toast('按「' + th.textContent.replace(/[▲▼]/g,'').trim() + '」排序');
+}));
+
+/* 主题 */
+$$('[data-theme-set]').forEach(c => c.addEventListener('click', () => {
+  $$('.tc').forEach(x => x.classList.remove('on')); c.classList.add('on');
+  document.documentElement.dataset.theme = c.dataset.themeSet;
+  toast('界面主题：' + c.textContent.trim());
+}));
+$$('[data-accent-set]').forEach(c => c.addEventListener('click', () => {
+  $$('.sw[data-accent-set]').forEach(x => x.classList.remove('on')); c.classList.add('on');
+  document.documentElement.dataset.accent = c.dataset.accentSet;
+}));
+
+/* 开关 / 分段 / 设置页签 */
+$$('.toggle').forEach(t => t.addEventListener('click', () => t.classList.toggle('on')));
+$$('.seg').forEach(seg => seg.addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b || !seg.contains(b)) return;
+  if(seg.id === 'viewseg') return;
+  [...seg.children].forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+}));
+$$('#stabs div').forEach(t => t.addEventListener('click', () => {
+  $$('#stabs div').forEach(x => x.classList.remove('on')); t.classList.add('on');
+  toast('切到：' + t.textContent);
+}));
+
+/* 顶栏动作 */
+$$('[data-act]').forEach(b => b.addEventListener('click', () => toast('『' + b.textContent.trim() + '』→ 原型演示')));
+
+/* toast */
+let tid;
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(tid); tid = setTimeout(() => t.classList.remove('show'), 1800);
+}
+refreshBatch();
+</script>
+</body>
+</html>

@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="zh-CN" data-paper="paper" data-mode="light">
+<head>
+<meta charset="utf-8">
+<title>书格 BookShelf 1.1.6 · 阅读界面原型 v3</title>
+<style>
+:root{
+  --chrome:#f3ede1; --chrome-2:#efe7d8; --side:#f7f2e6; --sheet:#fbf7ef;
+  --ink:#33302a; --ink-soft:#5d574c; --muted:#948b7c; --line:#e2d9c6; --line-2:#ece4d4;
+  --accent:#b0813f; --accent-soft:#f4e6cf; --accent-ink:#8a6122; --nav-on:#f6ead4;
+  --hl:#cfe3f3; --hl-ink:#24384a;
+  --shadow:0 1px 2px rgba(70,60,40,.06), 0 10px 28px rgba(70,60,40,.10);
+  --serif:"Source Han Serif CN","Songti SC","SimSun",serif;
+  --sans:"Noto Sans SC","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+  --fs:17px; --lh:1.95; --fsz:17;
+}
+html[data-paper="plain"]{
+  --chrome:#eceef0; --chrome-2:#e4e7ea; --side:#f2f4f6; --sheet:#ffffff;
+  --ink:#2b2e33; --ink-soft:#555a62; --muted:#8b9199; --line:#dde1e6; --line-2:#e8ebef;
+  --accent:#5b7288; --accent-soft:#e3ebf2; --accent-ink:#3f5568; --nav-on:#e6edf3;
+  --hl:#dbe6ef; --hl-ink:#26343f;
+}
+html[data-paper="old"]{
+  --chrome:#efe4d0; --chrome-2:#e9dcc5; --side:#f3e9d6; --sheet:#faf2e2;
+  --ink:#3a3125; --ink-soft:#655947; --muted:#9b8b71; --line:#decfb4; --line-2:#e9dcc6;
+  --accent:#a9752f; --accent-soft:#f1dfc2; --accent-ink:#7f5318; --nav-on:#eeddbe;
+  --hl:#d5e0e8; --hl-ink:#2b3946;
+}
+html[data-paper="grass"]{
+  --chrome:#e8eee5; --chrome-2:#e0e8dc; --side:#eef3ea; --sheet:#f6faf2;
+  --ink:#2f3a2c; --ink-soft:#556050; --muted:#889580; --line:#d6e0d0; --line-2:#e2ebdc;
+  --accent:#5d8a52; --accent-soft:#e0eed7; --accent-ink:#456b3b; --nav-on:#e3efda;
+  --hl:#dbe7c9; --hl-ink:#31412a;
+}
+html[data-paper="sakura"]{
+  --chrome:#f6e9ec; --chrome-2:#f0e0e5; --side:#fbf1f3; --sheet:#fff8f9;
+  --ink:#3b2f33; --ink-soft:#66565c; --muted:#a08d93; --line:#ecd8dd; --line-2:#f3e5e9;
+  --accent:#b9718a; --accent-soft:#fae3ea; --accent-ink:#8c4a61; --nav-on:#fae7ec;
+  --hl:#f3d7e0; --hl-ink:#4a2c36;
+}
+html[data-paper="sky"]{
+  --chrome:#e6eef4; --chrome-2:#dde8f0; --side:#f0f6fa; --sheet:#f8fbfe;
+  --ink:#28313a; --ink-soft:#52606b; --muted:#8695a2; --line:#d3e0ea; --line-2:#e2ecf3;
+  --accent:#4a7fa5; --accent-soft:#deeef8; --accent-ink:#2f6186; --nav-on:#e2f0f9;
+  --hl:#cfe4f4; --hl-ink:#22384a;
+}
+html[data-paper="sunset"]{
+  --chrome:#f7ecdd; --chrome-2:#f2e3ce; --side:#fbf3e6; --sheet:#fffaf1;
+  --ink:#3a2f24; --ink-soft:#67594a; --muted:#a08d75; --line:#ecdcc4; --line-2:#f3e8d6;
+  --accent:#c08a4a; --accent-soft:#f8e8cd; --accent-ink:#8c5c22; --nav-on:#faedd8;
+  --hl:#f6e3bd; --hl-ink:#4a3820;
+}
+html[data-paper="night"]{
+  --chrome:#16181b; --chrome-2:#1b1e22; --side:#191c20; --sheet:#1f2227;
+  --ink:#ddd7c9; --ink-soft:#aea89b; --muted:#7e837c; --line:#2c3037; --line-2:#262a30;
+  --accent:#d2a35f; --accent-soft:#33291a; --accent-ink:#e8c58d; --nav-on:#262b31;
+  --hl:#2c4257; --hl-ink:#cfe3f3;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 14px 34px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+html,body{height:100vh;width:100vw}
+body{margin:0;background:var(--chrome);color:var(--ink);font:13px/1.5 var(--sans);
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit;background:transparent;border:0;cursor:pointer}
+::-webkit-scrollbar{width:9px}
+::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted) 32%,transparent);border-radius:8px;}
+
+.reader{height:100vh;display:grid;grid-template-columns:288px 1fr;grid-template-rows:100vh;overflow:hidden}
+.reader.collapsed{grid-template-columns:0 1fr}
+
+/* ============ 左栏 ============ */
+.side{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;min-height:0;min-width:0}
+.sidetop{display:flex;align-items:center;gap:4px;padding:10px 12px 6px}
+.iconbtn{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--muted);flex:none}
+.iconbtn:hover{background:var(--chrome-2);color:var(--ink)}
+.grow{flex:1}
+
+.covercard{margin:6px 12px 10px;padding:9px;border-radius:14px;display:flex;gap:11px;align-items:center;
+  background:linear-gradient(160deg,color-mix(in srgb,var(--sheet) 92%,transparent),color-mix(in srgb,var(--chrome-2) 70%,transparent));
+  border:1px solid var(--line);cursor:pointer;transition:transform .18s ease, box-shadow .18s ease}
+.covercard:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(70,60,40,.12)}
+.cover{width:56px;height:78px;flex:none;border-radius:5px 7px 7px 5px;position:relative;
+  background:linear-gradient(158deg,#37453c,#1a211d 74%);
+  box-shadow:0 6px 14px rgba(40,35,25,.26), inset 0 1px 0 rgba(255,255,255,.12);
+  overflow:hidden;display:grid;place-items:center;padding-left:5px}
+.cover::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;
+  background:linear-gradient(90deg,rgba(0,0,0,.55),rgba(255,255,255,.10) 60%,rgba(0,0,0,.12));z-index:2}
+.cover::after{content:"";position:absolute;inset:0;border-radius:inherit;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.10), inset -7px 0 12px rgba(0,0,0,.28);pointer-events:none;z-index:2}
+.cover .seal{position:absolute;top:7px;right:7px;width:13px;height:13px;border-radius:2px;
+  background:linear-gradient(150deg,#c1483a,#8e2a20);opacity:.85;z-index:0}
+.cover b{position:relative;z-index:1;font:600 8.5px/1.55 var(--serif);color:#e8dcc2;letter-spacing:.12em;
+  text-align:center;max-width:42px;text-shadow:0 1px 2px rgba(0,0,0,.55)}
+.covinfo{min-width:0;flex:1}
+.covinfo .bt{font:600 14.5px/1.3 var(--serif);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.covinfo .ba{font-size:11.5px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:5px}
+.covinfo .ba .dot{width:2px;height:2px;border-radius:50%;background:var(--muted)}
+.covmeta{display:flex;align-items:center;gap:6px;margin-top:7px}
+.covmeta .bar{height:3px;border-radius:3px;background:var(--line);flex:1;overflow:hidden}
+.covmeta .bar i{display:block;height:100%;width:7%;border-radius:3px;background:var(--accent);transition:width .2s}
+.covmeta .pct{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.covpill{font-size:10px;padding:1px 6px;border-radius:20px;background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.info{width:20px;height:20px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;
+  color:var(--muted);flex:none;font:600 11px/1 var(--serif);background:var(--sheet)}
+.info:hover{border-color:var(--accent);color:var(--accent-ink)}
+
+.tabbar{display:flex;gap:2px;margin:0 12px 8px;padding:2px;border-radius:9px;background:var(--chrome-2);border:1px solid var(--line)}
+.tabbar button{flex:1;height:26px;border-radius:7px;font-size:12px;color:var(--muted)}
+.tabbar button.on{background:var(--sheet);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+.toc{flex:1;overflow:auto;padding:2px 10px 14px}
+.tocitem{display:flex;align-items:center;gap:8px;height:30px;padding:0 8px 0 10px;border-radius:8px;
+  color:var(--ink-soft);font-size:12.5px;cursor:pointer;position:relative}
+.tocitem:hover{background:color-mix(in srgb,var(--nav-on) 70%,transparent)}
+.tocitem .tt{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tocitem .pg{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tocitem.cur{background:var(--nav-on);color:var(--ink);font-weight:600}
+.tocitem.cur::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:3px;background:var(--accent)}
+.cur-tag{font-size:9.5px;padding:1px 5px;border-radius:4px;background:var(--accent);color:#fff;flex:none}
+
+/* ============ 主区 ============ */
+.main{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--chrome)}
+.topbar{height:46px;flex:none;display:flex;align-items:center;gap:6px;padding:0 10px;
+  border-bottom:1px solid var(--line-2)}
+.topbar .ttl{font:600 13px/1.2 var(--serif);letter-spacing:.3px;margin-left:2px}
+.topbar .sub{font-size:11px;color:var(--muted);margin-left:6px}
+.spacer{flex:1}
+.toolgrp{display:flex;align-items:center;gap:2px;padding:2px;border-radius:9px}
+.toolgrp:hover{background:var(--chrome-2)}
+
+/* 固定尺寸纸页：字号变化只重排版，不把页面拉长 */
+.stage{flex:1;min-height:0;display:flex;justify-content:center;align-items:stretch;padding:16px 20px 8px}
+.sheet{position:relative;width:min(700px,100%);height:100%;background:var(--sheet);
+  border:1px solid color-mix(in srgb,var(--line) 70%,transparent);
+  border-radius:4px;box-shadow:0 1px 2px rgba(70,60,40,.05), 0 18px 40px -20px rgba(70,60,40,.35);
+  padding:42px 54px 46px;display:flex;flex-direction:column;overflow:hidden}
+.sheet::after{content:"";position:absolute;left:0;right:0;bottom:0;height:52px;pointer-events:none;
+  background:linear-gradient(180deg,transparent,var(--sheet) 72%)}
+.chapterhead{flex:none;margin-bottom:18px}
+.chapterhead .num{font:500 10.5px/1 var(--sans);letter-spacing:3px;color:var(--muted);text-transform:uppercase}
+.chapterhead h1{font:600 21px/1.4 var(--serif);margin:8px 0 0;letter-spacing:1px}
+.chapterhead .rule{height:1px;background:linear-gradient(90deg,var(--line),transparent);margin-top:13px}
+.prose{flex:1;min-height:0;overflow:hidden;font-family:var(--serif);font-size:var(--fs);line-height:var(--lh);
+  color:var(--ink);text-align:justify;text-indent:2em;letter-spacing:.02em;
+  -webkit-mask-image:linear-gradient(180deg,#000 93%,transparent 100%);
+  mask-image:linear-gradient(180deg,#000 93%,transparent 100%)}
+.prose p{margin:0 0 .55em}
+.prose .lead{text-indent:0}
+.hl{background:linear-gradient(180deg,transparent 56%,var(--hl) 56%,var(--hl) 94%,transparent 94%);color:var(--hl-ink);padding:0 1px}
+.cutmark{position:absolute;left:0;right:0;bottom:18px;display:flex;justify-content:center;gap:6px;
+  align-items:center;color:var(--muted);font-size:10.5px;letter-spacing:1px;opacity:.7}
+
+/* 底栏 */
+.bottom{height:38px;flex:none;display:flex;align-items:center;gap:10px;padding:0 14px;
+  border-top:1px solid var(--line-2);font-size:11.5px;color:var(--muted)}
+.blocks{flex:1;max-width:520px;display:flex;align-items:center;gap:3px;height:8px;cursor:pointer}
+.blocks i{flex:1;height:100%;border-radius:2px;background:color-mix(in srgb,var(--muted) 22%,transparent)}
+.blocks i.on{background:var(--accent)}
+.blocks i.cur{background:var(--accent-ink);box-shadow:0 0 0 2px var(--accent-soft)}
+.pageno{color:var(--ink-soft);font-weight:600;font-variant-numeric:tabular-nums}
+.remain{font-variant-numeric:tabular-nums}
+.batt{width:18px;height:9px;border:1px solid var(--muted);border-radius:2px;position:relative;display:inline-block}
+.batt::after{content:"";position:absolute;right:-3px;top:2px;width:2px;height:4px;background:var(--muted)}
+.batt i{display:block;height:100%;width:72%;background:var(--muted)}
+.pginput{width:34px;height:22px;text-align:center;border:1px solid var(--line);border-radius:6px;
+  background:var(--sheet);font-size:11.5px;color:var(--ink)}
+
+/* ============ 设置弹窗（对齐 Readest） ============ */
+.mask{position:fixed;inset:0;background:rgba(40,34,24,.28);backdrop-filter:blur(2px);
+  opacity:0;pointer-events:none;transition:.2s;z-index:30}
+.mask.show{opacity:1;pointer-events:auto}
+.panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-48%) scale(.98);width:min(660px,92vw);
+  max-height:82vh;background:var(--sheet);border:1px solid var(--line);border-radius:18px;
+  box-shadow:0 24px 70px rgba(40,32,20,.28);display:flex;flex-direction:column;
+  opacity:0;pointer-events:none;transition:.22s ease;z-index:31}
+.panel.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.phd{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line-2);flex:none}
+.ptab{width:38px;height:34px;border-radius:9px;display:grid;place-items:center;color:var(--muted)}
+.ptab:hover{background:var(--chrome-2);color:var(--ink)}
+.ptab.on{background:var(--accent-soft);color:var(--accent-ink)}
+.phd .tt{font:600 12.5px;color:var(--ink-soft);margin-left:2px}
+.phd .spacer{flex:1}
+.pbody{flex:1;overflow:auto;padding:6px 18px 20px}
+.pcard{background:color-mix(in srgb,var(--chrome-2) 72%,var(--sheet));border:1px solid var(--line-2);
+  border-radius:12px;padding:2px 14px;margin:8px 0 14px}
+.sect{font-size:10.5px;letter-spacing:1.6px;color:var(--muted);margin:14px 2px 4px;text-transform:uppercase}
+.prow{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line-2);min-height:42px}
+.prow:last-child{border-bottom:0}
+.prow .lbl{flex:1;font-size:12.5px;color:var(--ink-soft)}
+.prow .ctl{display:flex;align-items:center;gap:6px}
+.stepper{display:flex;align-items:center;gap:4px}
+.stepper button{width:22px;height:22px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);
+  display:grid;place-items:center;font-size:13px}
+.stepper button:hover{filter:brightness(.96)}
+.stepper span{min-width:34px;text-align:center;font-size:12px;font-variant-numeric:tabular-nums}
+.toggle{width:40px;height:22px;border-radius:12px;background:color-mix(in srgb,var(--muted) 38%,var(--sheet));
+  border:1px solid color-mix(in srgb,var(--muted) 30%,transparent);
+  position:relative;cursor:pointer;transition:.15s;flex:none}
+.toggle::after{content:"";position:absolute;top:1px;left:1px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.15s}
+.toggle.on{background:var(--accent);border-color:var(--accent)}
+.toggle.on::after{left:19px}
+.seg{display:flex;padding:2px;gap:2px;background:var(--chrome-2);border:1px solid var(--line);border-radius:9px}
+.seg button{height:26px;padding:0 10px;border-radius:7px;font-size:12px;color:var(--muted)}
+.seg button.on{background:var(--sheet);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.sel{height:28px;border-radius:8px;border:1px solid var(--line);background:var(--sheet);padding:0 26px 0 8px;
+  font-size:12px;color:var(--ink-soft);min-width:132px;appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%238f8878' stroke-width='1.4' stroke-linecap='round'/></svg>");
+  background-repeat:no-repeat;background-position:right 9px center;cursor:pointer}
+.sel:focus{outline:none;border-color:var(--accent)}
+.modes{display:flex;gap:6px}
+.modes button{width:34px;height:28px;border-radius:8px;border:1px solid var(--line);display:grid;place-items:center;color:var(--muted)}
+.modes button.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
+
+/* 主题卡网格 */
+.themes{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0 4px}
+.th{border-radius:10px;border:1px solid var(--line);height:64px;cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:2px;font-size:10.5px;position:relative;overflow:hidden}
+.th b{font:600 15px/1.2 var(--serif)}
+.th.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.th.on::after{content:"✓";position:absolute;right:5px;top:3px;font-size:10px;color:var(--accent-ink)}
+.th small{font-size:9.5px;opacity:.75}
+#hls .th::after{display:none}
+#hls .th.on{box-shadow:0 0 0 2px var(--sheet),0 0 0 3px var(--accent)}
+
+/* 底部进度 & toast */
+.toast{position:fixed;left:50%;bottom:56px;transform:translate(-50%,10px);opacity:0;pointer-events:none;
+  background:var(--ink);color:var(--sheet);padding:7px 13px;border-radius:8px;font-size:12px;transition:.2s;z-index:50}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+
+<div class="reader" id="reader">
+  <!-- 左栏 -->
+  <aside class="side">
+    <div class="sidetop">
+      <button class="iconbtn" title="返回书库"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button class="iconbtn" title="书内搜索"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
+      <div class="grow"></div>
+      <button class="iconbtn" title="目录与设置"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    </div>
+
+    <div class="covercard" id="covercard" title="书籍详情（可编辑元数据）">
+      <div class="cover"><i class="seal"></i><b>太白金星<br>有点烦</b></div>
+      <div class="covinfo">
+        <div class="bt">太白金星有点烦</div>
+        <div class="ba">马伯庸<span class="dot"></span><span>湖南文艺出版社</span></div>
+        <div class="covmeta">
+          <span class="covpill">在读</span>
+          <div class="bar"><i id="covbar"></i></div>
+          <span class="pct" id="covpct">7%</span>
+        </div>
+      </div>
+      <button class="info" title="书籍详情">i</button>
+    </div>
+
+    <div class="tabbar" id="tabbar"><button class="on">目录</button><button>笔记 5</button><button>书签 3</button></div>
+
+    <div class="toc" id="toc">
+      <div class="tocitem"><span class="tt">第一章</span><span class="pg">1</span></div>
+      <div class="tocitem"><span class="tt">第二章</span><span class="pg">8</span></div>
+      <div class="tocitem cur"><span class="tt">第三章</span><span class="pg">16</span><span class="cur-tag">当前位置</span></div>
+      <div class="tocitem"><span class="tt">第四章</span><span class="pg">25</span></div>
+      <div class="tocitem"><span class="tt">第五章</span><span class="pg">33</span></div>
+      <div class="tocitem"><span class="tt">第六章</span><span class="pg">39</span></div>
+      <div class="tocitem"><span class="tt">第七章</span><span class="pg">46</span></div>
+      <div class="tocitem"><span class="tt">第八章</span><span class="pg">54</span></div>
+      <div class="tocitem"><span class="tt">第九章</span><span class="pg">61</span></div>
+      <div class="tocitem"><span class="tt">第十章</span><span class="pg">69</span></div>
+      <div class="tocitem"><span class="tt">第十一章</span><span class="pg">76</span></div>
+      <div class="tocitem"><span class="tt">第十二章</span><span class="pg">80</span></div>
+      <div class="tocitem"><span class="tt">第十三章</span><span class="pg">88</span></div>
+      <div class="tocitem"><span class="tt">第十四章</span><span class="pg">94</span></div>
+      <div class="tocitem"><span class="tt">第十五章</span><span class="pg">100</span></div>
+      <div class="tocitem"><span class="tt">第十六章</span><span class="pg">107</span></div>
+      <div class="tocitem"><span class="tt">第十七章</span><span class="pg">112</span></div>
+      <div class="tocitem"><span class="tt">第十八章</span><span class="pg">119</span></div>
+      <div class="tocitem"><span class="tt">第十九章</span><span class="pg">126</span></div>
+      <div class="tocitem"><span class="tt">第二十章</span><span class="pg">133</span></div>
+      <div class="tocitem"><span class="tt">第二十一章</span><span class="pg">142</span></div>
+      <div class="tocitem"><span class="tt">第二十二章</span><span class="pg">149</span></div>
+      <div class="tocitem"><span class="tt">第二十三章</span><span class="pg">158</span></div>
+      <div class="tocitem"><span class="tt">第二十四章</span><span class="pg">164</span></div>
+      <div class="tocitem"><span class="tt">第二十五章</span><span class="pg">173</span></div>
+      <div class="tocitem"><span class="tt">第二十六章</span><span class="pg">180</span></div>
+      <div class="tocitem"><span class="tt">第二十七章</span><span class="pg">188</span></div>
+    </div>
+  </aside>
+
+  <!-- 主区 -->
+  <main class="main">
+    <div class="topbar">
+      <button class="iconbtn" id="sidebtn" title="收起侧栏"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
+      <span class="ttl" id="ttltxt">第三章</span>
+      <span class="sub">太白金星有点烦</span>
+      <div class="spacer"></div>
+      <div class="toolgrp">
+        <button class="iconbtn" title="书签"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h12v17l-6-4-6 4z"/></svg></button>
+        <button class="iconbtn" title="书内搜索"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
+        <button class="iconbtn" id="aabtn" title="字体与排版">Aa</button>
+        <button class="iconbtn" title="笔记"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4l10-10-4-4-10 10z"/><path d="M14 6l4 4"/></svg></button>
+        <button class="iconbtn" title="更多">⋯</button>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="sheet" id="sheet">
+        <div class="chapterhead">
+          <div class="num">Chapter Three</div>
+          <h1>第三章</h1>
+          <div class="rule"></div>
+        </div>
+        <div class="prose" id="prose">
+          <p class="lead">忙完这些事，李长庚撕开灵芝吃了几口，盘膝跌坐在蒲团上。谁知一个小周天还没搬运完，头上闪光，这是有消息过来了。</p>
+          <p>飞符化成一团光不停盘旋，就是不凝实降下。李长庚叹了口气，他这个洞府是在诸峰林壑的最深处，固然合了幽静潜修之美，但飞符却不易感应，只有攀到山顶才能凝实。</p>
+          <p>他有些明天再收，可脑子里总惦记着，索性捶捶腿下了蒲团，吭哧吭哧爬到九刹山顶。登顶的一瞬间，团团光华闪耀不休，仙意宛然，观音发来的飞符一口气全收下来了。</p>
+          <p>第一条是：<span class="hl">“老李，双叉岭上玄奘遇见刘伯钦之前，遇到一头老虎，我登记成第七难了。”</span></p>
+          <p>第二条：<span class="hl">“老李，两界山玄奘收孙悟空当弟子的事，我登记成第八难了。附件是揭帖，你看看。”</span></p>
+          <p>第三条：<span class="hl">“西海龙说他们家三太子主动要求锻炼，我安排他去了鹰愁涧，先吃了玄奘的白马，这样咱们第九难也有了，再罚它去顶替坐骑。”</span></p>
+          <p>第四条：<span class="hl">“累死了，先沐浴。第十难看老李你发挥啦，跟第九难的间隔别太远哈。”</span></p>
+          <p>第五条：<span class="hl">“对了，孙悟空斗战不错，咱们接下来的护法方略，可以再大胆一些。”</span></p>
+          <p>李长庚松了口气，这一转眼就推进到第九难，速度还挺快，他回了一句“保重仙体”，然后溜达回洞府，盘膝坐下读五行山的揭帖。</p>
+          <p>揭帖是观音手书的，字迹清秀，一条一条列得极细：何处设难、何人应劫、何物为凭。</p>
+          <p>他读到一半忽然停住，指尖在“白骨”二字上顿了一顿，心里明白这一难怕是又要落在自己头上。</p>
+        </div>
+        <div class="cutmark">本页已排满 · 版面固定，字号变化只重排内容</div>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <div class="blocks" id="blocks" title="点击跳页"></div>
+      <span class="pageno"><b id="curpage">22</b> / <b id="totalpage">318</b></span>
+      <span class="remain">本章剩余 <b id="remmins">6</b> 分钟 · <b id="rempages">3</b> 页</span>
+      <div class="spacer"></div>
+      <span id="clock">00:02</span>
+      <span class="batt"><i></i></span>
+      <button class="iconbtn" id="prevpage" title="上一页">‹</button>
+      <input class="pginput" id="pginput" value="22">
+      <button class="iconbtn" id="nextpage" title="下一页">›</button>
+    </div>
+  </main>
+</div>
+
+<!-- ====== 设置弹窗 ====== -->
+<div class="mask" id="mask"></div>
+<div class="panel" id="panel">
+  <div class="phd">
+    <button class="ptab on" data-tab="theme" title="主题"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 000 18z" fill="currentColor" opacity=".25"/></svg></button>
+    <button class="ptab" data-tab="font" title="字体"><span style="font:600 14px var(--serif)">Aa</span></button>
+    <button class="ptab" data-tab="layout" title="布局"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
+    <button class="ptab" data-tab="read" title="阅读"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h9v15H4z"/><path d="M13 5h7v15h-7z"/></svg></button>
+    <button class="ptab" data-tab="gesture" title="手势"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11V5a2 2 0 014 0v6"/><path d="M13 11V7a2 2 0 014 0v7a6 6 0 01-6 6H9a5 5 0 01-5-5v-3a2 2 0 014 0v1"/></svg></button>
+    <button class="ptab" data-tab="about" title="其他"><span style="font-size:15px">⋯</span></button>
+    <div class="spacer"></div>
+    <span class="tt" id="ptitle">主题</span>
+    <button class="iconbtn" id="panelclose" title="关闭">✕</button>
+  </div>
+
+  <div class="pbody">
+    <!-- 主题 -->
+    <div class="pane" data-pane="theme">
+      <div class="sect">主题模式</div>
+      <div class="pcard">
+        <div class="prow"><div class="lbl">跟随系统 / 浅色 / 深色</div>
+          <div class="ctl"><div class="seg" id="modeseg"><button class="on">跟随系统</button><button>浅色</button><button>深色</button></div></div>
+        </div>
+        <div class="prow"><div class="lbl">深色主题下图片反色</div><div class="ctl"><div class="toggle"></div></div></div>
+        <div class="prow"><div class="lbl">透明图片背景</div><div class="ctl"><div class="toggle"></div></div></div>
+        <div class="prow"><div class="lbl">覆盖书籍颜色</div><div class="ctl"><div class="toggle"></div></div></div>
+      </div>
+
+      <div class="sect">主题颜色</div>
+      <div class="themes" id="themes">
+        <div class="th on" data-paper-set="paper" style="background:#fbf7ef;color:#33302a"><b>Aa</b><span>默认</span></div>
+        <div class="th" data-paper-set="plain" style="background:#fff;color:#2b2e33"><b>Aa</b><span>素雅</span></div>
+        <div class="th" data-paper-set="old" style="background:#faf2e2;color:#3a3125"><b>Aa</b><span>旧韵</span></div>
+        <div class="th" data-paper-set="grass" style="background:#f6faf2;color:#2f3a2c"><b>Aa</b><span>青草</span></div>
+        <div class="th" data-paper-set="sakura" style="background:#fff8f9;color:#3b2f33"><b>Aa</b><span>樱粉</span></div>
+        <div class="th" data-paper-set="sky" style="background:#f8fbfe;color:#28313a"><b>Aa</b><span>天青</span></div>
+        <div class="th" data-paper-set="sunset" style="background:#fffaf1;color:#3a2f24"><b>Aa</b><span>日晖</span></div>
+        <div class="th" data-paper-set="night" style="background:#1f2227;color:#ddd7c9"><b>Aa</b><span>夜间</span></div>
+      </div>
+
+      <div class="sect">高亮颜色</div>
+      <div class="pcard"><div class="prow"><div class="lbl">标注与批注颜色</div>
+        <div class="ctl" id="hls">
+          <div class="th on" style="width:26px;height:26px;border-radius:50%;padding:0;background:#cfe3f3" data-hl="#cfe3f3"></div>
+          <div class="th" style="width:26px;height:26px;border-radius:50%;padding:0;background:#f5d9a8" data-hl="#f5d9a8"></div>
+          <div class="th" style="width:26px;height:26px;border-radius:50%;padding:0;background:#d8e8c2" data-hl="#d8e8c2"></div>
+          <div class="th" style="width:26px;height:26px;border-radius:50%;padding:0;background:#eccfd8" data-hl="#eccfd8"></div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- 字体 -->
+    <div class="pane" data-pane="font" style="display:none">
+      <div class="pcard">
+        <div class="prow"><div class="lbl">覆盖书籍字体</div><div class="ctl"><div class="toggle"></div></div></div>
+      </div>
+      <div class="sect">字号</div>
+      <div class="pcard">
+        <div class="prow"><div class="lbl">默认字号</div>
+          <div class="ctl stepper"><button data-fs="-1">−</button><span id="fsval">17</span><button data-fs="1">＋</button></div>
+        </div>
+        <div class="prow"><div class="lbl">最小字号</div>
+          <div class="ctl stepper"><button>−</button><span>8</span><button>＋</button></div>
+        </div>
+        <div class="prow"><div class="lbl">正文字重</div>
+          <div class="ctl stepper"><button>−</button><span>400</span><button>＋</button></div>
+        </div>
+      </div>
+
+      <div class="sect">首选字体</div>
+      <div class="pcard">
+        <div class="prow"><div class="lbl">字体类别</div>
+          <div class="ctl"><select class="sel"><option>无衬线字体</option><option>衬线字体</option></select></div>
+        </div>
+        <div class="prow"><div class="lbl">衬线字体</div>
+          <div class="ctl"><select class="sel" id="cnfont"><option>霞鹜文楷</option><option>思源宋体</option><option>霞鹜新明</option><option>Literata</option></select></div>
+        </div>
+        <div class="prow"><div class="lbl">忽略出版方字体名称</div><div class="ctl"><div class="toggle on"></div></div></div>
+        <div class="prow"><div class="lbl">无衬线字体</div>
+          <div class="ctl"><select class="sel"><option>Noto Sans SC</option><option>Inter</option><option>Roboto</option></select></div>
+        </div>
+        <div class="prow"><div class="lbl">等宽字体</div>
+          <div class="ctl"><select class="sel"><option>Consolas</option><option>JetBrains Mono</option></select></div>
+        </div>
+      </div>
+      <div class="pcard"><div class="prow" style="padding:14px 0">
+        <div style="font-family:var(--serif);font-size:15px;line-height:1.9">
+          掉剪掉，枯枝反而培育起来呢？<br><span style="font-family:Literata,Georgia,serif;font-size:13px">A quiet, deliberate rhythm of reading.</span>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- 布局 -->
+    <div class="pane" data-pane="layout" style="display:none">
+      <div class="pcard"><div class="prow"><div class="lbl">覆盖版面布局</div><div class="ctl"><div class="toggle"></div></div></div></div>
+      <div class="sect">排版模式</div>
+      <div class="pcard"><div class="prow"><div class="lbl">段落样式</div>
+        <div class="ctl modes">
+          <button class="on" title="两端对齐 · 首行缩进"><span style="font:600 12px var(--serif)">☰</span></button>
+          <button title="左对齐"><span style="font:600 12px var(--serif)">≡</span></button>
+          <button title="首行缩进"><span style="font:600 12px var(--serif)">¶</span></button>
+          <button title="悬挂缩进"><span style="font:600 12px var(--serif)">⌐</span></button>
+        </div>
+      </div></div>
+
+      <div class="sect">段落</div>
+      <div class="pcard">
+        <div class="prow"><div class="lbl">使用书籍排版</div><div class="ctl"><div class="toggle"></div></div></div>
+        <div class="prow"><div class="lbl">段间距</div><div class="ctl stepper"><button>−</button><span>1</span><button>＋</button></div></div>
+        <div class="prow"><div class="lbl">行间距</div><div class="ctl stepper"><button data-lh="-0.1">−</button><span id="lhval">1.95</span><button data-lh="0.1">＋</button></div></div>
+        <div class="prow"><div class="lbl">字间距</div><div class="ctl stepper"><button>−</button><span>0</span><button>＋</button></div></div>
+        <div class="prow"><div class="lbl">首行缩进</div><div class="ctl stepper"><button>−</button><span>2</span><button>＋</button></div></div>
+        <div class="prow"><div class="lbl">两端对齐</div><div class="ctl"><div class="toggle on"></div></div></div>
+        <div class="prow"><div class="lbl">断字</div><div class="ctl"><div class="toggle on"></div></div></div>
+      </div>
+
+      <div class="sect">页面</div>
+      <div class="pcard">
+        <div class="prow"><div class="lbl">上边距</div><div class="ctl stepper"><button>−</button><span>42</span><button>＋</button></div></div>
+        <div class="prow"><div class="lbl">下边距</div><div class="ctl stepper"><button>−</button><span>46</span><button>＋</button></div></div>
+        <div class="prow"><div class="lbl">左边距</div><div class="ctl stepper"><button>−</button><span>54</span><button>＋</button></div></div>
+        <div class="prow"><div class="lbl">右边距</div><div class="ctl stepper"><button>−</button><span>54</span><button>＋</button></div></div>
+        <div class="prow"><div class="lbl">页宽固定（文字重排不拉长书页）</div><div class="ctl"><div class="toggle on"></div></div></div>
+      </div>
+    </div>
+
+    <!-- 阅读 -->
+    <div class="pane" data-pane="read" style="display:none">
+      <div class="pcard">
+        <div class="prow"><div class="lbl">翻页方式</div><div class="ctl"><div class="seg"><button class="on">翻页</button><button>滚动</button></div></div></div>
+        <div class="prow"><div class="lbl">分栏</div><div class="ctl"><div class="seg"><button class="on">单页</button><button>双页摊开</button></div></div></div>
+        <div class="prow"><div class="lbl">自动翻页</div><div class="ctl"><div class="toggle"></div><span style="font-size:11.5px;color:var(--muted)">30 秒</span></div></div>
+        <div class="prow"><div class="lbl">段滚模式</div><div class="ctl"><div class="seg"><button>关</button><button class="on">按段</button></div></div></div>
+      </div>
+      <div class="sect">状态栏</div>
+      <div class="pcard">
+        <div class="prow"><div class="lbl">显示剩余时间与页数</div><div class="ctl"><div class="toggle on"></div></div></div>
+        <div class="prow"><div class="lbl">显示时钟</div><div class="ctl"><div class="toggle on"></div></div></div>
+        <div class="prow"><div class="lbl">显示电池</div><div class="ctl"><div class="toggle on"></div></div></div>
+        <div class="prow"><div class="lbl">点击翻页区</div><div class="ctl"><div class="seg"><button>左 10%</button><button class="on">左 30%</button><button>整屏</button></div></div></div>
+      </div>
+      <div class="sect">辅助</div>
+      <div class="pcard">
+        <div class="prow"><div class="lbl">顶部遮罩（减少反光）</div><div class="ctl"><div class="toggle"></div></div></div>
+        <div class="prow"><div class="lbl">选中即朗读</div><div class="ctl"><div class="toggle"></div></div></div>
+        <div class="prow"><div class="lbl">阅读尺</div><div class="ctl"><div class="toggle"></div></div></div>
+      </div>
+    </div>
+
+    <!-- 手势 / 其他 -->
+    <div class="pane" data-pane="gesture" style="display:none">
+      <div class="pcard">
+        <div class="prow"><div class="lbl">单击中央显示 / 隐藏工具栏</div><div class="ctl"><div class="toggle on"></div></div></div>
+        <div class="prow"><div class="lbl">双击缩放</div><div class="ctl"><div class="toggle"></div></div></div>
+        <div class="prow"><div class="lbl">长按选词</div><div class="ctl"><div class="toggle on"></div></div></div>
+        <div class="prow"><div class="lbl">左右滑动翻页</div><div class="ctl"><div class="toggle on"></div></div></div>
+      </div>
+    </div>
+
+    <div class="pane" data-pane="about" style="display:none">
+      <div class="pcard">
+        <div class="prow"><div class="lbl">书格 BookShelf 1.1.6</div><div class="ctl"><span style="font-size:11.5px;color:var(--muted)">GPL-3.0</span></div></div>
+        <div class="prow"><div class="lbl">数据库</div><div class="ctl"><span style="font-size:11.5px;color:var(--muted)">v5 · 正常</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const root = document.documentElement;
+
+/* ---------- 底栏 ---------- */
+const blocks = $('#blocks');
+for(let i=0;i<24;i++){
+  const b = document.createElement('i');
+  b.className = i < 2 ? 'on' : (i === 2 ? 'on cur' : '');
+  blocks.appendChild(b);
+}
+$('#blocks').addEventListener('click', e => {
+  const all = $$('#blocks i'); const i = all.indexOf(e.target); if(i < 0) return;
+  all.forEach((x,j) => x.className = j < i ? 'on' : (j === i ? 'on cur' : ''));
+  setPage(Math.round((i + 1) / all.length * +$('#totalpage').textContent));
+});
+
+/* 页数随字号/行距重排（页面尺寸不变，只有总页数变） */
+let fs = 17, lh = 1.95, cur = 22;
+function calcTotal(){
+  return Math.round(318 * Math.pow(fs / 17, 1) * Math.pow(lh / 1.95, 0.5));
+}
+function setPage(n){
+  const total = +$('#totalpage').textContent;
+  cur = Math.max(1, Math.min(total, Math.round(n)));
+  $('#curpage').textContent = cur;
+  $('#pginput').value = cur;
+  $('#rempages').textContent = Math.max(0, total - cur);
+  $('#remmins').textContent = Math.round((total - cur) * 0.35);
+  const pct = Math.round(cur / total * 100);
+  $('#covpct').textContent = pct + '%';
+  $('#covbar').style.width = pct + '%';
+}
+function reflow(){
+  root.style.setProperty('--fs', fs + 'px');
+  root.style.setProperty('--lh', lh);
+  const total = calcTotal();
+  $('#totalpage').textContent = total;
+  $('#fsval').textContent = fs;
+  $('#lhval').textContent = lh.toFixed(2);
+  setPage(cur);
+}
+
+/* ---------- 设置弹窗 ---------- */
+function openPanel(tab){
+  $('#mask').classList.add('show'); $('#panel').classList.add('open');
+  if(tab) switchTab(tab);
+}
+function closePanel(){ $('#mask').classList.remove('show'); $('#panel').classList.remove('open'); }
+$('#aabtn').onclick = () => openPanel('font');
+$('#mask').onclick = closePanel;
+$('#panelclose').onclick = closePanel;
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closePanel(); });
+
+const TITLES = {theme:'主题', font:'字体', layout:'布局', read:'阅读', gesture:'手势', about:'其他'};
+function switchTab(tab){
+  $$('.ptab').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  $$('.pane').forEach(p => p.style.display = (p.dataset.pane === tab ? '' : 'none'));
+  $('#ptitle').textContent = TITLES[tab] || '';
+}
+$$('.ptab').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+
+/* 主题卡 */
+$$('#themes .th').forEach(t => t.onclick = () => {
+  $$('#themes .th').forEach(x => x.classList.remove('on')); t.classList.add('on');
+  root.dataset.paper = t.dataset.paperSet;
+  toast('纸面：' + t.textContent.trim());
+});
+/* 高亮色（圆形卡片） */
+$$('#hls .th').forEach(s => s.onclick = () => {
+  $$('#hls .th').forEach(x => x.classList.remove('on')); s.classList.add('on');
+  $$('.hl').forEach(h => h.style.setProperty('--hl', s.dataset.hl));
+  toast('高亮色已切换');
+});
+
+/* 字号 / 行距步进 */
+$$('[data-fs]').forEach(b => b.onclick = () => {
+  fs = Math.min(30, Math.max(13, fs + (+b.dataset.fs)));
+  reflow(); toast('字号 ' + fs + '：全书重排为约 ' + calcTotal() + ' 页，书页尺寸不变');
+});
+$$('[data-lh]').forEach(b => b.onclick = () => {
+  lh = Math.min(2.8, Math.max(1.3, +(lh + (+b.dataset.lh)).toFixed(2)));
+  reflow(); toast('行距 ' + lh.toFixed(2) + '：约 ' + calcTotal() + ' 页');
+});
+
+/* 通用开关 / 分段 */
+$$('.toggle').forEach(t => t.onclick = () => t.classList.toggle('on'));
+$$('.seg').forEach(seg => seg.addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  [...seg.children].forEach(x => x.classList.remove('on')); b.classList.add('on');
+}));
+$('#modeseg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  if(b.textContent.includes('深色')){ root.dataset.paper = 'night';
+    $$('#themes .th').forEach(x => x.classList.toggle('on', x.dataset.paperSet === 'night')); }
+  if(b.textContent.includes('浅色')){ root.dataset.paper = 'paper';
+    $$('#themes .th').forEach(x => x.classList.toggle('on', x.dataset.paperSet === 'paper')); }
+});
+$$('.modes').forEach(m => m.addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  [...m.children].forEach(x => x.classList.remove('on')); b.classList.add('on');
+}));
+
+/* 左栏交互 */
+$('#sidebtn').onclick = () => $('#reader').classList.toggle('collapsed');
+$('#tabbar').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  $$('#tabbar button').forEach(x => x.classList.remove('on')); b.classList.add('on');
+  toast('切到：' + b.textContent.trim());
+});
+$('#toc').addEventListener('click', e => {
+  const it = e.target.closest('.tocitem'); if(!it) return;
+  $$('.tocitem').forEach(x => { x.classList.remove('cur'); x.querySelector('.cur-tag')?.remove(); });
+  it.classList.add('cur');
+  const tag = document.createElement('span'); tag.className = 'cur-tag'; tag.textContent = '当前位置';
+  it.appendChild(tag);
+  $('#ttltxt').textContent = it.querySelector('.tt').textContent;
+  setPage(+it.querySelector('.pg').textContent);
+  toast('跳到 ' + it.querySelector('.tt').textContent);
+});
+$('#covercard').querySelector('.info').onclick = e => { e.stopPropagation(); toast('书籍详情（可编辑元数据）'); };
+$('#prevpage').onclick = () => setPage(cur - 1);
+$('#nextpage').onclick = () => setPage(cur + 1);
+$('#pginput').addEventListener('change', e => setPage(+e.target.value));
+
+/* 时钟 */
+function tick(){
+  const d = new Date();
+  $('#clock').textContent = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+tick(); setInterval(tick, 20000);
+
+/* toast */
+let tid;
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(tid); tid = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* 初始化 */
+const qp = new URLSearchParams(location.search);
+if(qp.get('fs')) fs = Math.min(30, Math.max(13, +qp.get('fs')));
+if(qp.get('lh')) lh = Math.min(2.8, Math.max(1.3, +qp.get('lh')));
+$('#totalpage').textContent = calcTotal();
+reflow();
+if(location.search.includes('aa')) openPanel('font');
+if(location.search.includes('theme')) openPanel('theme');
+if(location.search.includes('layout')) openPanel('layout');
+</script>
+</body>
+</html>

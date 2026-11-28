@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="zh-CN" data-paper="paper" data-accent="gold">
+<head>
+<meta charset="utf-8">
+<title>书格 BookShelf 1.1.6 · 阅读界面原型 v2</title>
+<style>
+:root{
+  /* 纸面（默认） */
+  --chrome:#f3ede1; --chrome-2:#efe7d8; --side:#f7f2e6; --sheet:#fbf7ef;
+  --ink:#33302a; --ink-soft:#5d574c; --muted:#948b7c; --line:#e2d9c6; --line-2:#ece4d4;
+  --accent:#b0813f; --accent-soft:#f4e6cf; --accent-ink:#8a6122;
+  --nav-on:#f6ead4;
+  --hl:#cfe3f3; --hl-ink:#24384a;
+  --shadow:0 1px 2px rgba(70,60,40,.06), 0 10px 28px rgba(70,60,40,.10);
+  --radius:12px;
+  --serif:"Source Han Serif CN","Songti SC","SimSun",serif;
+  --sans:"Noto Sans SC","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+  --fs:17px; --lh:1.95;
+}
+html[data-paper="sepia"]{
+  --chrome:#efe4d0; --chrome-2:#e9dcc5; --side:#f3e9d6; --sheet:#faf2e2;
+  --ink:#3a3125; --ink-soft:#655947; --muted:#9b8b71; --line:#decfb4; --line-2:#e9dcc6;
+  --accent:#a9752f; --accent-soft:#f1dfc2; --accent-ink:#7f5318;
+  --nav-on:#eeddbe; --hl:#d5e0e8; --hl-ink:#2b3946;
+}
+html[data-paper="green"]{
+  --chrome:#e8eee5; --chrome-2:#e0e8dc; --side:#eef3ea; --sheet:#f6faf2;
+  --ink:#2f3a2c; --ink-soft:#556050; --muted:#889580; --line:#d6e0d0; --line-2:#e2ebdc;
+  --accent:#5d8a52; --accent-soft:#e0eed7; --accent-ink:#456b3b;
+  --nav-on:#e3efda; --hl:#dbe7c9; --hl-ink:#31412a;
+}
+html[data-paper="night"]{
+  --chrome:#16181b; --chrome-2:#1b1e22; --side:#191c20; --sheet:#1f2227;
+  --ink:#ddd7c9; --ink-soft:#aea89b; --muted:#7e837c; --line:#2c3037; --line-2:#262a30;
+  --accent:#d2a35f; --accent-soft:#33291a; --accent-ink:#e8c58d;
+  --nav-on:#262b31;
+  --hl:#2c4257; --hl-ink:#cfe3f3;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 14px 34px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--chrome);color:var(--ink);font:13px/1.5 var(--sans);
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit;background:transparent;border:0;cursor:pointer}
+::-webkit-scrollbar{width:9px}
+::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted) 32%,transparent);border-radius:8px}
+
+.reader{height:100%;display:grid;grid-template-columns:288px 1fr}
+.reader.collapsed{grid-template-columns:0 1fr}
+
+/* ================= 左栏 ================= */
+.side{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;
+  min-width:0;overflow:hidden;transition:none}
+.sidetop{display:flex;align-items:center;gap:4px;padding:10px 12px 6px}
+.iconbtn{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--muted);flex:none}
+.iconbtn:hover{background:var(--chrome-2);color:var(--ink)}
+.sidetop .grow{flex:1}
+
+/* —— 封面卡（重点优化） —— */
+.covercard{margin:6px 12px 10px;padding:9px;border-radius:14px;display:flex;gap:11px;align-items:center;
+  background:linear-gradient(160deg,color-mix(in srgb,var(--sheet) 92%,transparent),color-mix(in srgb,var(--chrome-2) 70%,transparent));
+  border:1px solid var(--line);box-shadow:0 1px 2px rgba(70,60,40,.05);
+  cursor:pointer;transition:transform .18s ease, box-shadow .18s ease}
+.covercard:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(70,60,40,.12)}
+.cover{width:56px;height:78px;flex:none;border-radius:5px 7px 7px 5px;position:relative;
+  background:linear-gradient(158deg,#37453c,#1a211d 74%);
+  box-shadow:0 6px 14px rgba(40,35,25,.26), inset 0 1px 0 rgba(255,255,255,.12);
+  overflow:hidden;display:grid;place-items:center;padding-left:5px}
+.cover::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;
+  background:linear-gradient(90deg,rgba(0,0,0,.55),rgba(255,255,255,.10) 60%,rgba(0,0,0,.12));z-index:2}
+.cover::after{content:"";position:absolute;inset:0;border-radius:inherit;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.10), inset -7px 0 12px rgba(0,0,0,.28);pointer-events:none;z-index:2}
+.cover .seal{position:absolute;top:7px;right:7px;width:13px;height:13px;border-radius:2px;
+  background:linear-gradient(150deg,#c1483a,#8e2a20);opacity:.85;z-index:0}
+.cover b{position:relative;z-index:1;font:600 8.5px/1.55 var(--serif);color:#e8dcc2;letter-spacing:.12em;
+  text-align:center;max-width:42px;text-shadow:0 1px 2px rgba(0,0,0,.55)}
+.covinfo{min-width:0;flex:1}
+.covinfo .bt{font:600 14.5px/1.3 var(--serif);letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.covinfo .ba{font-size:11.5px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:5px}
+.covinfo .ba .dot{width:2px;height:2px;border-radius:50%;background:var(--muted);display:inline-block}
+.covmeta{display:flex;align-items:center;gap:6px;margin-top:7px}
+.covmeta .bar{height:3px;border-radius:3px;background:var(--line);flex:1;overflow:hidden;position:relative}
+.covmeta .bar i{display:block;height:100%;width:7%;border-radius:3px;
+  background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 60%,#fff))}
+.covmeta .pct{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.covpill{font-size:10px;padding:1px 6px;border-radius:20px;background:var(--accent-soft);
+  color:var(--accent-ink);font-weight:600;letter-spacing:.4px}
+.info{width:20px;height:20px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;
+  color:var(--muted);flex:none;font:600 11px/1 var(--serif);background:var(--sheet)}
+.info:hover{border-color:var(--accent);color:var(--accent-ink)}
+
+/* —— 表格页签 —— */
+.tabbar{display:flex;gap:2px;margin:0 12px 8px;padding:2px;border-radius:9px;background:var(--chrome-2);border:1px solid var(--line)}
+.tabbar button{flex:1;height:26px;border-radius:7px;font-size:12px;color:var(--muted)}
+.tabbar button.on{background:var(--sheet);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+/* —— 目录 —— */
+.toc{flex:1;overflow:auto;padding:2px 10px 14px}
+.tocitem{display:flex;align-items:center;gap:8px;height:30px;padding:0 8px 0 10px;border-radius:8px;
+  color:var(--ink-soft);font-size:12.5px;cursor:pointer;position:relative}
+.tocitem:hover{background:color-mix(in srgb,var(--nav-on) 70%,transparent)}
+.tocitem .tt{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tocitem .pg{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tocitem.cur{background:var(--nav-on);color:var(--ink);font-weight:600}
+.tocitem.cur::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:3px;background:var(--accent)}
+.tocitem.cur .pg{color:var(--accent-ink)}
+.cur-tag{font-size:9.5px;padding:1px 5px;border-radius:4px;background:var(--accent);color:#fff;
+  letter-spacing:.3px;flex:none}
+
+/* ================= 主区 ================= */
+.main{display:flex;flex-direction:column;min-width:0;background:var(--chrome)}
+.topbar{height:46px;flex:none;display:flex;align-items:center;gap:6px;padding:0 10px;
+  background:color-mix(in srgb,var(--chrome) 88%,transparent);border-bottom:1px solid var(--line-2)}
+.topbar .ttl{font:600 13px/1.2 var(--serif);letter-spacing:.3px;margin-left:2px}
+.topbar .sub{font-size:11px;color:var(--muted);margin-left:6px}
+.topbar .spacer{flex:1}
+.toolgrp{display:flex;align-items:center;gap:2px;padding:2px;border-radius:9px}
+.toolgrp:hover{background:var(--chrome-2)}
+
+/* 阅读纸面 */
+.stage{flex:1;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:18px 20px 8px}
+.sheet{width:min(680px,100%);background:var(--sheet);border-radius:4px;
+  border:1px solid color-mix(in srgb,var(--line) 70%,transparent);
+  box-shadow:0 1px 2px rgba(70,60,40,.05), 0 18px 40px -20px rgba(70,60,40,.35);
+  padding:44px 56px 40px;margin-bottom:10px}
+html[data-paper="night"] .sheet{box-shadow:0 1px 2px rgba(0,0,0,.4)}
+.chapterhead{margin-bottom:26px}
+.chapterhead .num{font:500 11px/1 var(--sans);letter-spacing:3px;color:var(--muted);text-transform:uppercase}
+.chapterhead h1{font:600 22px/1.4 var(--serif);margin:8px 0 0;letter-spacing:1px}
+.chapterhead .rule{height:1px;background:linear-gradient(90deg,var(--line),transparent);margin-top:14px}
+.prose{font-family:var(--serif);font-size:var(--fs);line-height:var(--lh);color:var(--ink);
+  text-align:justify;text-indent:2em;letter-spacing:.02em}
+.prose p{margin:0 0 .55em}
+.prose .lead{text-indent:0}
+.hl{background:linear-gradient(180deg,transparent 56%,var(--hl) 56%,var(--hl) 94%,transparent 94%);
+  color:var(--hl-ink);padding:0 1px;border-radius:1px}
+.selnote{margin-top:18px;padding:9px 12px;border-left:3px solid var(--accent);background:var(--accent-soft);
+  font:12.5px/1.7 var(--sans);color:var(--ink-soft);border-radius:0 8px 8px 0;display:none}
+.selnote.on{display:block}
+
+/* 选中浮条 */
+.seltool{position:fixed;display:none;gap:2px;padding:4px;border-radius:10px;background:var(--sheet);
+  border:1px solid var(--line);box-shadow:var(--shadow);z-index:40}
+.seltool.show{display:flex}
+.seltool button{padding:5px 9px;border-radius:7px;font-size:12px;color:var(--ink-soft);display:flex;gap:5px;align-items:center}
+.seltool button:hover{background:var(--accent-soft);color:var(--accent-ink)}
+.seltool .dotc{width:11px;height:11px;border-radius:50%;display:inline-block}
+
+/* 底栏 */
+.bottom{height:38px;flex:none;display:flex;align-items:center;gap:10px;padding:0 14px;
+  background:color-mix(in srgb,var(--chrome) 92%,transparent);border-top:1px solid var(--line-2);
+  font-size:11.5px;color:var(--muted)}
+.blocks{flex:1;max-width:520px;display:flex;align-items:center;gap:3px;height:8px;cursor:pointer}
+.blocks i{flex:1;height:100%;border-radius:2px;background:color-mix(in srgb,var(--muted) 22%,transparent)}
+.blocks i.on{background:var(--accent)}
+.blocks i.cur{background:var(--accent-ink);box-shadow:0 0 0 2px var(--accent-soft)}
+.pageno{font-variant-numeric:tabular-nums;color:var(--ink-soft);font-weight:600}
+.remain{font-variant-numeric:tabular-nums}
+.bottom .sp{flex:1}
+.batt{width:18px;height:9px;border:1px solid var(--muted);border-radius:2px;position:relative;display:inline-block}
+.batt::after{content:"";position:absolute;right:-3px;top:2px;width:2px;height:4px;background:var(--muted);border-radius:0 1px 1px 0}
+.batt i{display:block;height:100%;width:72%;background:var(--muted)}
+.pginput{width:34px;height:22px;text-align:center;border:1px solid var(--line);border-radius:6px;
+  background:var(--sheet);font-size:11.5px;color:var(--ink)}
+
+/* ================= Aa 抽屉 ================= */
+.drawer{position:fixed;top:0;right:0;bottom:0;width:330px;background:var(--sheet);
+  border-left:1px solid var(--line);box-shadow:-10px 0 30px rgba(60,50,30,.10);
+  transform:translateX(100%);transition:transform .22s ease;z-index:30;display:flex;flex-direction:column}
+.drawer.open{transform:none}
+.dhd{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line-2)}
+.dhd b{font:600 13px var(--sans);flex:1}
+.dtabs{display:flex;gap:2px;margin:12px 14px 4px;padding:2px;border-radius:9px;background:var(--chrome-2);border:1px solid var(--line)}
+.dtabs button{flex:1;height:26px;border-radius:7px;font-size:12px;color:var(--muted)}
+.dtabs button.on{background:var(--sheet);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.dbody{flex:1;overflow:auto;padding:8px 14px 20px}
+.dsec{margin:14px 0 6px;font-size:10.5px;letter-spacing:1.6px;color:var(--muted);text-transform:uppercase}
+.drow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line-2)}
+.drow:last-child{border-bottom:0}
+.drow .lbl{width:76px;flex:none;font-size:12.5px;color:var(--ink-soft)}
+.drow .val{flex:1;display:flex;align-items:center;gap:6px;justify-content:flex-end}
+.mini{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);display:grid;place-items:center;
+  color:var(--muted);background:var(--sheet)}
+.mini:hover{border-color:var(--accent);color:var(--accent-ink)}
+.numbox{min-width:42px;text-align:center;font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.seg{display:flex;padding:2px;gap:2px;background:var(--chrome-2);border:1px solid var(--line);border-radius:9px}
+.seg button{height:26px;padding:0 10px;border-radius:7px;font-size:12px;color:var(--muted)}
+.seg button.on{background:var(--sheet);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.papers{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.paper{height:56px;border-radius:9px;border:1px solid var(--line);cursor:pointer;position:relative;
+  display:grid;place-items:center;font:600 10px var(--sans);letter-spacing:.5px}
+.paper.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.paper.on::after{content:"✓";position:absolute;right:4px;top:2px;font-size:10px;color:var(--accent-ink)}
+.swatchrow{display:flex;gap:8px}
+.hsw{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent}
+.hsw.on{border-color:var(--ink)}
+.toggle{width:40px;height:22px;border-radius:12px;background:var(--line);position:relative;cursor:pointer;transition:.15s;flex:none}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.15s}
+.toggle.on{background:var(--accent)}
+.toggle.on::after{left:20px}
+.fontdemo{padding:10px 12px;border:1px dashed var(--line);border-radius:10px;background:var(--chrome-2);
+  font-family:var(--serif);font-size:15px;line-height:1.9;margin-top:6px;text-indent:0}
+.toast{position:fixed;left:50%;bottom:56px;transform:translate(-50%,10px);opacity:0;pointer-events:none;
+  background:var(--ink);color:var(--sheet);padding:7px 13px;border-radius:8px;font-size:12px;transition:.2s;z-index:50}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+
+<div class="reader" id="reader">
+  <!-- ============ 左栏 ============ -->
+  <aside class="side" id="side">
+    <div class="sidetop">
+      <button class="iconbtn" title="返回书库">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <button class="iconbtn" title="书内搜索">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+      </button>
+      <div class="grow"></div>
+      <button class="iconbtn" title="目录与阅读设置">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
+
+    <!-- 封面卡：书封 + 书名/作者 + 进度 + 在读标记 + 详情 -->
+    <div class="covercard" id="covercard" title="点击查看书籍详情（可编辑元数据）">
+      <div class="cover"><i class="seal"></i><b>太白金星<br>有点烦</b></div>
+      <div class="covinfo">
+        <div class="bt">太白金星有点烦</div>
+        <div class="ba">马伯庸<span class="dot"></span><span>湖南文艺出版社</span></div>
+        <div class="covmeta">
+          <span class="covpill">在读</span>
+          <div class="bar"><i></i></div>
+          <span class="pct">7%</span>
+        </div>
+      </div>
+      <button class="info" title="书籍详情">i</button>
+    </div>
+
+    <div class="tabbar" id="tabbar">
+      <button class="on">目录</button>
+      <button>笔记 5</button>
+      <button>书签 3</button>
+    </div>
+
+    <div class="toc" id="toc">
+      <div class="tocitem"><span class="tt">第一章</span><span class="pg">1</span></div>
+      <div class="tocitem"><span class="tt">第二章</span><span class="pg">8</span></div>
+      <div class="tocitem cur"><span class="tt">第三章</span><span class="pg">16</span><span class="cur-tag">当前位置</span></div>
+      <div class="tocitem"><span class="tt">第四章</span><span class="pg">25</span></div>
+      <div class="tocitem"><span class="tt">第五章</span><span class="pg">33</span></div>
+      <div class="tocitem"><span class="tt">第六章</span><span class="pg">39</span></div>
+      <div class="tocitem"><span class="tt">第七章</span><span class="pg">46</span></div>
+      <div class="tocitem"><span class="tt">第八章</span><span class="pg">54</span></div>
+      <div class="tocitem"><span class="tt">第九章</span><span class="pg">61</span></div>
+      <div class="tocitem"><span class="tt">第十章</span><span class="pg">69</span></div>
+      <div class="tocitem"><span class="tt">第十一章</span><span class="pg">76</span></div>
+      <div class="tocitem"><span class="tt">第十二章</span><span class="pg">80</span></div>
+      <div class="tocitem"><span class="tt">第十三章</span><span class="pg">88</span></div>
+      <div class="tocitem"><span class="tt">第十四章</span><span class="pg">94</span></div>
+      <div class="tocitem"><span class="tt">第十五章</span><span class="pg">100</span></div>
+      <div class="tocitem"><span class="tt">第十六章</span><span class="pg">107</span></div>
+      <div class="tocitem"><span class="tt">第十七章</span><span class="pg">112</span></div>
+      <div class="tocitem"><span class="tt">第十八章</span><span class="pg">119</span></div>
+      <div class="tocitem"><span class="tt">第十九章</span><span class="pg">126</span></div>
+      <div class="tocitem"><span class="tt">第二十章</span><span class="pg">133</span></div>
+      <div class="tocitem"><span class="tt">第二十一章</span><span class="pg">142</span></div>
+      <div class="tocitem"><span class="tt">第二十二章</span><span class="pg">149</span></div>
+      <div class="tocitem"><span class="tt">第二十三章</span><span class="pg">158</span></div>
+      <div class="tocitem"><span class="tt">第二十四章</span><span class="pg">164</span></div>
+      <div class="tocitem"><span class="tt">第二十五章</span><span class="pg">173</span></div>
+      <div class="tocitem"><span class="tt">第二十六章</span><span class="pg">180</span></div>
+      <div class="tocitem"><span class="tt">第二十七章</span><span class="pg">188</span></div>
+    </div>
+  </aside>
+
+  <!-- ============ 主区 ============ -->
+  <main class="main">
+    <div class="topbar">
+      <button class="iconbtn" id="sidebtn" title="收起 / 展开侧栏">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+      </button>
+      <span class="ttl" id="ttltxt">第三章</span>
+      <span class="sub" id="subtxt">太白金星有点烦</span>
+      <div class="spacer"></div>
+      <div class="toolgrp">
+        <button class="iconbtn" title="书签">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h12v17l-6-4-6 4z"/></svg>
+        </button>
+        <button class="iconbtn" title="书内搜索">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        </button>
+        <button class="iconbtn" id="aabtn" title="字体与排版">Aa</button>
+        <button class="iconbtn" title="笔记">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4l10-10-4-4-10 10z"/><path d="M14 6l4 4"/></svg>
+        </button>
+        <button class="iconbtn" title="更多">⋯</button>
+      </div>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="sheet">
+        <div class="chapterhead">
+          <div class="num">Chapter Three</div>
+          <h1>第三章</h1>
+          <div class="rule"></div>
+        </div>
+        <div class="prose" id="prose">
+          <p class="lead">忙完这些事，李长庚撕开灵芝吃了几口，盘膝跌坐在蒲团上。谁知一个小周天还没搬运完，头上闪光，这是有消息过来了。</p>
+          <p>飞符化成一团光不停盘旋，就是不凝实降下。李长庚叹了口气，他这个洞府是在诸峰林壑的最深处，固然合了幽静潜修之美，但飞符却不易感应，只有攀到山顶才能凝实。</p>
+          <p>他有些明天再收，可脑子里总惦记着，索性捶捶腿下了蒲团，吭哧吭哧爬到九刹山顶。登顶的一瞬间，团团光华闪耀不休，仙意宛然，观音发来的飞符一口气全收下来了。</p>
+          <p>第一条是：<span class="hl">“老李，双叉岭上玄奘遇见刘伯钦之前，遇到一头老虎，我登记成第七难了。”</span></p>
+          <p>第二条：<span class="hl">“老李，两界山玄奘收孙悟空当弟子的事，我登记成第八难了。附件是揭帖，你看看。”</span></p>
+          <p>第三条：<span class="hl">“西海龙说他们家三太子主动要求锻炼，我安排他去了鹰愁涧，先吃了玄奘的白马，这样咱们第九难也有了，再罚它去顶替坐骑。”</span></p>
+          <p>第四条：<span class="hl">“累死了，先沐浴。第十难看老李你发挥啦，跟第九难的间隔别太远哈。”</span></p>
+          <p>第五条：<span class="hl">“对了，孙悟空斗战不错，咱们接下来的护法方略，可以再大胆一些。”</span></p>
+          <p>李长庚松了口气，这一转眼就推进到第九难，速度还挺快，他回了一句“保重仙体”，然后溜达回洞府，盘膝坐下读五行山的揭帖。</p>
+        </div>
+        <div class="selnote" id="selnote">
+          <b>我的批注 ·</b> 观音用飞符在“派活”，李长庚在“接活”——这一段把天庭的文书流程写得像极了公司群消息。
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <div class="blocks" id="blocks" title="点击跳转">
+        <!-- 由脚本生成 24 段 -->
+      </div>
+      <span class="pageno"><b id="curpage">22</b> / 318</span>
+      <span class="remain">本章剩余 <b id="remmins">6</b> 分钟 · <b id="rempages">3</b> 页</span>
+      <div class="sp"></div>
+      <span id="clock">00:02</span>
+      <span class="batt"><i></i></span>
+      <button class="iconbtn" id="prevpage" title="上一页">‹</button>
+      <input class="pginput" id="pginput" value="22">
+      <button class="iconbtn" id="nextpage" title="下一页">›</button>
+    </div>
+  </main>
+
+  <!-- ============ Aa 抽屉 ============ -->
+  <aside class="drawer" id="drawer">
+    <div class="dhd">
+      <b>字体与排版</b>
+      <button class="iconbtn" id="drawerclose">✕</button>
+    </div>
+    <div class="dtabs" id="dtabs">
+      <button class="on">字体</button>
+      <button>版面</button>
+      <button>主题</button>
+      <button>阅读</button>
+    </div>
+    <div class="dbody">
+      <!-- 字体 -->
+      <div class="dsec">字体</div>
+      <div class="drow"><div class="lbl">中文</div>
+        <div class="val"><select id="cnfont" style="height:28px;border-radius:7px;border:1px solid var(--line);background:var(--sheet);padding:0 6px">
+          <option>霞鹜文楷</option><option>思源宋体</option><option>霞鹜新明</option><option>Noto Sans SC</option>
+        </select></div>
+      </div>
+      <div class="drow"><div class="lbl">英文</div>
+        <div class="val"><select style="height:28px;border-radius:7px;border:1px solid var(--line);background:var(--sheet);padding:0 6px">
+          <option>Literata</option><option>EB Garamond</option><option>Source Serif 4</option><option>Inter</option>
+        </select></div>
+      </div>
+      <div class="fontdemo">掉剪掉，枯枝反而培育起来呢？<br><span style="font-family:Literata,Georgia,serif">A quiet, deliberate rhythm of reading.</span></div>
+
+      <div class="drow"><div class="lbl">字号</div>
+        <div class="val"><button class="mini" data-fs="-1">A-</button><span class="numbox" id="fsnum">17</span><button class="mini" data-fs="1">A+</button></div>
+      </div>
+      <div class="drow"><div class="lbl">行距</div>
+        <div class="val"><input type="range" id="lhrange" min="1.4" max="2.6" step="0.05" value="1.95"><span class="numbox" id="lhnum">1.95</span></div>
+      </div>
+      <div class="drow"><div class="lbl">页边距</div>
+        <div class="val"><input type="range" min="24" max="96" value="56"><span class="numbox">56</span></div>
+      </div>
+      <div class="drow"><div class="lbl">字重</div>
+        <div class="val"><div class="seg" id="wseg"><button>细</button><button class="on">标准</button><button>粗</button></div></div>
+      </div>
+
+      <!-- 版面 -->
+      <div class="dsec">版面</div>
+      <div class="drow"><div class="lbl">分栏</div>
+        <div class="val"><div class="seg" id="colseg"><button class="on">单页</button><button>双页摊开</button></div></div>
+      </div>
+      <div class="drow"><div class="lbl">阅读方式</div>
+        <div class="val"><div class="seg"><button class="on">翻页</button><button>滚动</button></div></div>
+      </div>
+      <div class="drow"><div class="lbl">对齐</div>
+        <div class="val"><div class="seg"><button class="on">两端对齐</button><button>左对齐</button></div></div>
+      </div>
+      <div class="drow"><div class="lbl">自动翻页</div>
+        <div class="val"><div class="toggle"></div><span class="numbox">30s</span></div>
+      </div>
+
+      <!-- 主题 -->
+      <div class="dsec">纸面</div>
+      <div class="papers" id="papers">
+        <div class="paper on" data-paper-set="paper" style="background:#fbf7ef;color:#33302a">纸白</div>
+        <div class="paper" data-paper-set="sepia" style="background:#faf2e2;color:#3a3125">米黄</div>
+        <div class="paper" data-paper-set="green" style="background:#f6faf2;color:#2f3a2c">护眼</div>
+        <div class="paper" data-paper-set="night" style="background:#1f2227;color:#ddd7c9">夜间</div>
+      </div>
+      <div class="dsec">高亮色</div>
+      <div class="swatchrow" id="hls">
+        <div class="hsw on" style="background:#cfe3f3" data-hl="#cfe3f3"></div>
+        <div class="hsw" style="background:#f5d9a8" data-hl="#f5d9a8"></div>
+        <div class="hsw" style="background:#d8e8c2" data-hl="#d8e8c2"></div>
+        <div class="hsw" style="background:#eccfd8" data-hl="#eccfd8"></div>
+        <div class="hsw" style="background:#d9d0ee" data-hl="#d9d0ee"></div>
+      </div>
+
+      <!-- 阅读 -->
+      <div class="dsec">阅读辅助</div>
+      <div class="drow"><div class="lbl">顶部遮罩</div><div class="val"><div class="toggle"></div></div></div>
+      <div class="drow"><div class="lbl">显示时钟</div><div class="val"><div class="toggle on"></div></div></div>
+      <div class="drow"><div class="lbl">剩余时间</div><div class="val"><div class="toggle on"></div></div></div>
+      <div class="drow"><div class="lbl">点击翻页区</div><div class="val"><div class="seg"><button>左 10%</button><button class="on">左 30%</button><button>整屏</button></div></div></div>
+      <div class="drow"><div class="lbl">选中即朗读</div><div class="val"><div class="toggle"></div></div></div>
+    </div>
+  </aside>
+</div>
+
+<!-- 选中浮条 -->
+<div class="seltool" id="seltool">
+  <button><span class="dotc" style="background:#cfe3f3"></span>高亮</button>
+  <button>写批注</button>
+  <button>复制</button>
+  <button>朗读</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const root = document.documentElement;
+
+/* 底部墨点进度 */
+const blocks = $('#blocks');
+for(let i=0;i<24;i++){
+  const b = document.createElement('i');
+  if(i < 2) b.className = 'on';
+  if(i === 2) b.className = 'on cur';
+  blocks.appendChild(b);
+}
+$$('#blocks i').forEach((b,i) => b.addEventListener('click', () => {
+  $$('#blocks i').forEach((x,j) => x.className = j < i ? 'on' : (j === i ? 'on cur' : ''));
+  setPage(20 + i * 12);
+  toast('跳到约 ' + (20 + i * 12) + ' 页');
+}));
+
+/* 页码 */
+function setPage(n){
+  n = Math.max(1, Math.min(318, n));
+  $('#curpage').textContent = n;
+  $('#pginput').value = n;
+  $('#rempages').textContent = Math.max(0, 318 - n);
+  $('#remmins').textContent = Math.round((318 - n) * 0.35);
+  $('#covercard').querySelector('.pct').textContent = Math.round(n / 318 * 100) + '%';
+  $('#covercard').querySelector('.bar i').style.width = (n / 318 * 100) + '%';
+}
+$('#prevpage').onclick = () => setPage(+$('#pginput').value - 1);
+$('#nextpage').onclick = () => setPage(+$('#pginput').value + 1);
+$('#pginput').addEventListener('change', e => setPage(+e.target.value));
+
+/* 时钟 */
+function tick(){
+  const d = new Date();
+  $('#clock').textContent = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+tick(); setInterval(tick, 20000);
+
+/* 侧栏收起 */
+$('#sidebtn').onclick = () => {
+  $('#reader').classList.toggle('collapsed');
+};
+
+/* 页签 */
+$('#tabbar').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  $$('#tabbar button').forEach(x => x.classList.remove('on')); b.classList.add('on');
+  toast('切到：' + b.textContent.trim());
+});
+$('#toc').addEventListener('click', e => {
+  const it = e.target.closest('.tocitem'); if(!it) return;
+  $$('.tocitem').forEach(x => { x.classList.remove('cur'); x.querySelector('.cur-tag')?.remove(); });
+  it.classList.add('cur');
+  const tag = document.createElement('span'); tag.className = 'cur-tag'; tag.textContent = '当前位置';
+  it.appendChild(tag);
+  $('#ttltxt').textContent = it.querySelector('.tt').textContent;
+  setPage(+it.querySelector('.pg').textContent);
+  toast('跳到 ' + it.querySelector('.tt').textContent);
+});
+
+/* Aa 抽屉 */
+$('#aabtn').onclick = () => $('#drawer').classList.add('open');
+$('#drawerclose').onclick = () => $('#drawer').classList.remove('open');
+$('#dtabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  $$('#dtabs button').forEach(x => x.classList.remove('on')); b.classList.add('on');
+});
+
+/* 字号 / 行距 */
+let fs = 17;
+$$('[data-fs]').forEach(b => b.onclick = () => {
+  fs = Math.min(28, Math.max(13, fs + (+b.dataset.fs)));
+  root.style.setProperty('--fs', fs + 'px');
+  $('#fsnum').textContent = fs;
+});
+$('#lhrange').oninput = e => {
+  root.style.setProperty('--lh', e.target.value);
+  $('#lhnum').textContent = e.target.value;
+};
+
+/* 纸张 */
+$$('#papers .paper').forEach(p => p.onclick = () => {
+  $$('#papers .paper').forEach(x => x.classList.remove('on')); p.classList.add('on');
+  root.dataset.paper = p.dataset.paperSet;
+});
+/* 高亮色 */
+$$('#hls .hsw').forEach(s => s.onclick = () => {
+  $$('#hls .hsw').forEach(x => x.classList.remove('on')); s.classList.add('on');
+  $$('.hl').forEach(h => h.style.setProperty('--hl', s.dataset.hl));
+  toast('高亮色已切换');
+});
+
+/* 通用开关 / 分段 */
+$$('.toggle').forEach(t => t.onclick = () => t.classList.toggle('on'));
+$$('.seg').forEach(seg => seg.addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  [...seg.children].forEach(x => x.classList.remove('on')); b.classList.add('on');
+  if(seg.id === 'colseg') toast(b.textContent.trim() + '（下次翻页生效）');
+}));
+
+/* 封面卡 / 详情 */
+$('#covercard').onclick = () => setPage(+$('#pginput').value);
+$('#covercard').querySelector('.info').onclick = e => {
+  e.stopPropagation(); toast('打开书籍详情（可编辑元数据）');
+};
+
+/* 正文：点句选中 → 浮条 */
+const seltool = $('#seltool'), prose = $('#prose');
+prose.addEventListener('mouseup', e => {
+  const sel = window.getSelection();
+  if(!sel || sel.isCollapsed) return;
+  const r = sel.getRangeAt(0).getBoundingClientRect();
+  seltool.style.left = Math.min(window.innerWidth - 260, Math.max(12, r.left)) + 'px';
+  seltool.style.top = (r.top - 44) + 'px';
+  seltool.classList.add('show');
+});
+document.addEventListener('mousedown', e => {
+  if(!seltool.contains(e.target)) seltool.classList.remove('show');
+});
+$('#seltool').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  if(b.textContent.includes('写批注')) $('#selnote').classList.add('on');
+  toast(b.textContent.trim());
+});
+
+/* toast */
+let tid;
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(tid); tid = setTimeout(() => t.classList.remove('show'), 1600);
+}
+setPage(22);
+if(location.search.includes('aa')) $('#drawer').classList.add('open');
+</script>
+</body>
+</html>
