@@ -7,7 +7,7 @@ from typing import Any
 import re
 
 from PySide6.QtCore import QSettings, QThreadPool, QTimer, Qt, QUrl
-from PySide6.QtGui import QAction, QDesktopServices
+from PySide6.QtGui import QAction, QColor, QDesktopServices
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -55,7 +55,7 @@ from .pages.help_page import HelpPage
 from .pages.library_page import EmptyLibraryPage, SampleLibraryDialog
 from .pages.reader_container import open_with_system
 from .reader_window import ReaderWindow
-from .theme import load_stylesheet
+from .theme import load_stylesheet, ui_colors
 from .widgets.book_table import HEADERS, BookTableModel
 from .widgets.detail_panel import DetailPanel
 from .widgets.log_panel import LogPanel
@@ -307,15 +307,35 @@ class MainWindow(QMainWindow):
         header.setFixedHeight(38)
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(14, 0, 14, 0)
-        logo = QLabel("BS")
-        logo.setObjectName("Logo")
-        logo.setFixedSize(22, 22)
-        logo.setAlignment(Qt.AlignCenter)
-        title = QLabel(f"{config.APP_NAME_CN}  ·  书库管理")
-        title.setObjectName("TitleBarText")
-        header_layout.addWidget(logo)
-        header_layout.addSpacing(8)
-        header_layout.addWidget(title)
+        header_layout.setSpacing(8)
+
+        # 品牌字标：书图标 + 「书格」 + 「BookShelf」副标（主指令 §A.1）
+        _ui_cfg = self.settings.data.get("ui") or {}
+        _accent = ui_colors(str(_ui_cfg.get("theme") or "dark"))["accent"]
+        _accent_dark = QColor(_accent).darker(120).name()
+
+        mark = QLabel(config.APP_NAME_CN[0])
+        mark.setObjectName("BrandMark")
+        mark.setFixedSize(26, 26)
+        mark.setAlignment(Qt.AlignCenter)
+        mark.setStyleSheet(
+            f"background: qlineargradient(x1:0, y1:0, x2:1, y2:1,"
+            f" stop:0 {_accent}, stop:1 {_accent_dark});"
+        )
+
+        text_col = QWidget()
+        text_layout = QVBoxLayout(text_col)
+        text_layout.setContentsMargins(0, 0, 0, 0)
+        text_layout.setSpacing(0)
+        cn = QLabel(config.APP_NAME_CN)
+        cn.setObjectName("BrandCN")
+        en = QLabel(config.APP_NAME.upper())
+        en.setObjectName("BrandEN")
+        text_layout.addWidget(cn)
+        text_layout.addWidget(en)
+
+        header_layout.addWidget(mark)
+        header_layout.addWidget(text_col)
         header_layout.addStretch(1)
         root.addWidget(header)
 
