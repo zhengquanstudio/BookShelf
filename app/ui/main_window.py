@@ -53,6 +53,7 @@ from .pages.author_page import AuthorPage
 from .pages.folder_page import FolderPage
 from .pages.help_page import HelpPage
 from .pages.shelf_page import ShelfPage
+from .pages.stats_page import StatsPage
 from .pages.library_page import EmptyLibraryPage, SampleLibraryDialog
 from .pages.reader_container import open_with_system
 from .reader_window import ReaderWindow
@@ -465,6 +466,8 @@ class MainWindow(QMainWindow):
         self.shelf_page.open_requested.connect(self._open_book_by_id)
         self.shelf_page.go_library_requested.connect(self._go_library_from_shelf)
         self.shelf_page.query_changed.connect(self._on_shelf_query)
+        self.stats_page = StatsPage(self.db)
+        self.stats_page.go_shelf_requested.connect(self._go_shelf_from_stats)
         self._reader_windows: dict[int, ReaderWindow] = {}
 
         self.content_stack = QStackedWidget()
@@ -473,6 +476,7 @@ class MainWindow(QMainWindow):
         self.content_stack.addWidget(self.folder_page)
         self.content_stack.addWidget(self.help_page)
         self.content_stack.addWidget(self.shelf_page)
+        self.content_stack.addWidget(self.stats_page)
 
         self.body_splitter = QSplitter(Qt.Horizontal)
         self.body_splitter.setObjectName("BodySplitter")
@@ -614,6 +618,7 @@ class MainWindow(QMainWindow):
         self.table_model.set_theme(theme_name, accent_name)
         self._cell_delegate.set_theme(theme_name, accent_name)
         self.shelf_page.set_theme(theme_name, accent_name)
+        self.stats_page.set_theme(theme_name, accent_name)
         self.table.viewport().update()
         self.detail.set_theme(theme_name, accent_name)
         self._position_batch_bar()
@@ -659,6 +664,8 @@ class MainWindow(QMainWindow):
                 search=self.search_box.text(), sort=self._library_sort, desc=self._library_desc
             )
             self.shelf_page.refresh()
+        if self.content_stack.currentWidget() is self.stats_page:
+            self.stats_page.refresh()
 
     def _query_library_page(self, page: int) -> tuple[list[dict[str, Any]], int]:
         return self.library.query_books(
@@ -1172,6 +1179,10 @@ class MainWindow(QMainWindow):
             self.open_scan_dialog()
         return False
 
+    def _go_shelf_from_stats(self) -> None:
+        self.nav.set_current_silent("shelf")
+        self._on_nav("shelf")
+
     def _go_library_from_shelf(self) -> None:
         self.nav.set_current_silent("all")
         self._on_nav("all")
@@ -1326,6 +1337,11 @@ class MainWindow(QMainWindow):
                 search=self.search_box.text(), sort=self._library_sort, desc=self._library_desc
             )
             self.shelf_page.refresh()
+        elif key == "stats":
+            self._nav_display_key = "stats"
+            self.content_stack.setCurrentWidget(self.stats_page)
+            self.vertical.widget(1).setVisible(False)
+            self.stats_page.refresh()
         elif key in {"authors", "series"}:
             self.content_stack.setCurrentWidget(self.author_page)
             self.vertical.widget(1).setVisible(True)

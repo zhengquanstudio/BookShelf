@@ -1050,3 +1050,39 @@ QLineEdit:focus, QTextEdit:focus {
     border: none;
 }
 
+/* ---- T21 阅读统计 ---- */
+#StatsScroll {
+    background: transparent;
+    border: none;
+}
+
+#StatsMetricCard, #StatsPanelBox {
+    background: #1f2125;
+    border: 1px solid #33383f;
+    border-radius: 12px;
+}
+
+#StatsMetricLabel, #StatsMetricSub, #StatsSessionMeta {
+    color: #a3a9b4;
+    font-size: 11.5px;
+}
+
+#StatsMetricValue {
+    color: #e7e9ee;
+    font-family: "Consolas";
+    font-size: 22px;
+    font-weight: 600;
+}
+
+#StatsSessionRow {
+    background: #25282d;
+    border: 1px solid #33383f;
+    border-radius: 8px;
+}
+
+#StatsSessionTitle {
+    color: #e7e9ee;
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
