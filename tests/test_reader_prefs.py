@@ -136,8 +136,9 @@ def test_prefs_popup_has_three_tabs_and_swatches(reader):
     assert reader.prefs_stack.currentIndex() == 2
     assert reader.prefs_tabs[2].isChecked() and not reader.prefs_tabs[0].isChecked()
     reader._show_prefs()
-    assert reader.prefs_popup.isVisible()
-    reader.prefs_popup.hide()
+    assert not reader.prefs_popup.isVisible()
+    assert reader._prefs_dialog is not None and reader._prefs_dialog.isVisible()
+    reader._prefs_dialog.reject()
 
 
 def test_chrome_toggle_and_escape(reader):

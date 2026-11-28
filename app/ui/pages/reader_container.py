@@ -88,6 +88,7 @@ from ..theme_tokens import (
     normalize_highlight_name,
     palette_for,
 )
+from ..dialogs.reader_prefs_dialog import ReaderPrefsDialog
 from ..widgets.book_detail_overlay import BookDetailOverlay
 from ..widgets.icon_button import IconButton
 from ..widgets.reader_cover_card import ReaderCoverCard
@@ -2834,17 +2835,27 @@ class ReaderContainer(QWidget):
         self._select_theme(THEME_KEYS[(index + 1) % len(THEME_KEYS)])
 
     def _show_prefs(self) -> None:
+        """打开阅读设置弹窗（T14）；`changed` 信号即时写入并生效（T18）。"""
+        if getattr(self, "_prefs_dialog", None) is not None and self._prefs_dialog.isVisible():
+            self._prefs_dialog.raise_()
+            self._prefs_dialog.activateWindow()
+            return
+        dialog = ReaderPrefsDialog(
+            self.settings, self._resolve_palette(), self._reader_prefs(), parent=self
+        )
+        self._prefs_dialog = dialog
+        dialog.changed.connect(lambda changes: self._update_prefs(**changes))
+        dialog.finished.connect(self._on_prefs_dialog_closed)
+        frame = self.frameGeometry()
+        rect = dialog.frameGeometry()
+        rect.moveCenter(frame.center())
+        dialog.move(rect.topLeft())
+        dialog.show()
+
+    def _on_prefs_dialog_closed(self, _result: int) -> None:
+        self._prefs_dialog = None
+        self._refresh_toc_meta()
         self._sync_prefs_widgets()
-        self.prefs_popup.adjustSize()
-        button = self.aa_button
-        anchor = button.mapToGlobal(QPoint(button.width() - self.prefs_popup.width(), button.height() + 6))
-        self.prefs_popup.move(anchor)
-        self.prefs_popup.setWindowOpacity(0.0)
-        self.prefs_popup.show()
-        self._prefs_fade.stop()
-        self._prefs_fade.setStartValue(0.0)
-        self._prefs_fade.setEndValue(1.0)
-        self._prefs_fade.start()
 
     def _refresh_toc_meta(self) -> None:
         prefs = self._reader_prefs()
