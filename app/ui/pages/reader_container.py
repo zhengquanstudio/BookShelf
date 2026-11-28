@@ -77,9 +77,10 @@ from ...services.library_service import LibraryService
 from ...services.metadata_service import MetadataService
 from ...services.organize_service import OrganizeService
 from ...services.settings_service import SettingsService
-from ..theme_tokens import PALETTES, THEME_KEYS, ReaderPalette, palette_for
+from ..theme_tokens import PALETTES, THEME_KEYS, ReaderPalette, mix, palette_for
 from ..widgets.book_detail_overlay import BookDetailOverlay
 from ..widgets.icon_button import IconButton
+from ..widgets.reader_cover_card import ReaderCoverCard
 from ..widgets.segmented_progress import SegmentedProgress
 from ..widgets.stepper import Stepper
 
@@ -299,6 +300,9 @@ def _reader_qss(theme: ReaderPalette) -> str:
     """阅读器窗口的局部样式，跟随主题切换，优先于全局样式表。"""
     hover = "rgba(255,255,255,0.08)" if _is_dark_palette(theme) else "rgba(0,0,0,0.06)"
     pressed = "rgba(255,255,255,0.12)" if _is_dark_palette(theme) else "rgba(0,0,0,0.10)"
+    dark = theme.key == "dark"
+    accent_soft = mix(theme.accent, theme.page, 0.82)
+    accent_ink = mix(theme.accent, "#ffffff" if dark else theme.ink, 0.55)
     return f"""
     #ReaderPage {{ background: {theme.chrome}; }}
     #ReaderTopBar, #ReaderBottomBar {{ background: {theme.chrome}; border: 0; }}
@@ -424,6 +428,16 @@ def _reader_qss(theme: ReaderPalette) -> str:
     #ReaderDetailStatus[error="true"] {{ color: #c05a78; }}
     QSplitter#ReaderSplitter::handle:horizontal {{ background: {theme.border}; }}
     QSplitter#ReaderSplitter::handle:horizontal:hover {{ background: {theme.accent}; }}
+    /* T9：侧栏顶部封面卡 */
+    #ReaderCoverCard {{ background: {theme.panel}; border: 1px solid {theme.border}; border-radius: 14px; }}
+    #ReaderCoverTitle {{ color: {theme.ink}; font-size: 14.5px; font-weight: 600; background: transparent; }}
+    #ReaderCoverAuthor {{ color: {theme.muted}; font-size: 11.5px; background: transparent; }}
+    #ReaderCoverPill {{ background: {accent_soft}; color: {accent_ink}; border-radius: 20px; padding: 1px 6px; font-size: 10px; font-weight: 600; }}
+    #ReaderCoverPercent {{ color: {theme.muted}; font-size: 10.5px; background: transparent; }}
+    QProgressBar#ReaderCoverProgress {{ background: {theme.border}; border: 0; border-radius: 3px; }}
+    QProgressBar#ReaderCoverProgress::chunk {{ background: {theme.accent}; border-radius: 3px; }}
+    QPushButton#ReaderCoverInfo {{ background: {theme.chrome}; color: {theme.muted}; border: 1px solid {theme.border}; border-radius: 11px; font-size: 11px; font-weight: 600; }}
+    QPushButton#ReaderCoverInfo:hover {{ color: {theme.accent}; border-color: {theme.accent}; }}
     """
 
 
@@ -733,6 +747,11 @@ class ReaderContainer(QWidget):
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(8, 6, 8, 8)
         layout.setSpacing(6)
+
+        # T9：侧栏顶部封面卡（56×78 书封 + 书名/作者 + 进度 + 圆 i）。
+        self.cover_card = ReaderCoverCard()
+        self.cover_card.detail_requested.connect(self._show_book_detail)
+        layout.addWidget(self.cover_card)
 
         tabs = QHBoxLayout()
         tabs.setSpacing(0)
@@ -1523,9 +1542,8 @@ class ReaderContainer(QWidget):
     def _display_author(self) -> str:
         return str(self._book.get("author_name") or self._book.get("author_raw") or "作者未知")
 
-    def _render_cover_thumb(self) -> None:
-        """顶栏 26×36 竖封面；无封面时用书名首字生成主题色占位。"""
-        w, h = 26, 36
+    def _make_cover_pixmap(self, w: int, h: int) -> QPixmap:
+        """生成 w×h 竖封面：有真实封面则居中裁切，否则书名首字占位。"""
         pix = LibraryService.cover_for(self._book) if self._book else None
         if pix is None or pix.isNull():
             theme = self._resolve_palette()
@@ -1534,7 +1552,7 @@ class ReaderContainer(QWidget):
             painter = QPainter(pix)
             painter.setPen(QColor(theme.muted))
             font = painter.font()
-            font.setPointSize(10)
+            font.setPointSize(max(8, int(h * 0.28)))
             font.setBold(True)
             painter.setFont(font)
             painter.drawText(
@@ -1551,7 +1569,14 @@ class ReaderContainer(QWidget):
                 w,
                 h,
             )
-        self.cover_label.setPixmap(pix)
+        return pix
+
+    def _render_cover_thumb(self) -> None:
+        """顶栏 26×36 竖封面 + 侧栏封面卡 56×78。"""
+        self.cover_label.setPixmap(self._make_cover_pixmap(26, 36))
+        if hasattr(self, "cover_card"):
+            self.cover_card.set_book(self._book or {})
+            self.cover_card.set_cover_pixmap(self._make_cover_pixmap(56, 78))
 
     def _on_favorite(self) -> None:
         """顶栏收藏按钮：切换 books.favorite。"""
@@ -1924,6 +1949,8 @@ class ReaderContainer(QWidget):
         self.favorite_button.blockSignals(False)
 
         self._render_cover_thumb()
+        if hasattr(self, "cover_card"):
+            self.cover_card.set_progress(float(self._location.get("percent") or 0))
 
         parts = [part for part in (author, fmt) if part]
         progress = self.repo.get_progress(self._book_id) if self._book_id else None
@@ -2589,6 +2616,9 @@ class ReaderContainer(QWidget):
         for button in self._icon_buttons:
             button.set_icon_color(theme.ink)
         self.progress.apply_palette(theme)
+        if hasattr(self, "cover_card"):
+            self.cover_card.set_theme(theme)
+            self._render_cover_thumb()
         self._apply_header_footer()
         self._update_clock()
 
