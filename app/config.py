@@ -124,6 +124,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "column_count": 1,
         "page_mode": "single",
         "page_width": 560,
+        "fixed_page_width": True,
         "disable_double_click": False,
         "auto_turn_sec": 0,
         "reading_ruler": False,

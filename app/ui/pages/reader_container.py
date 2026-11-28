@@ -945,6 +945,8 @@ class ReaderContainer(QWidget):
     def _build_web(self) -> QWidget:
         if self._web_enabled:
             self.web = ReaderWebView(self.db, self)
+            # T16：阅读画布 Expanding/Expanding，高度取容器高度，不随内容增长。
+            self.web.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             bridge = self.web.bridge
             bridge.tocReady.connect(self._on_toc)
             bridge.locationChanged.connect(self._on_location)

@@ -219,6 +219,31 @@
     STATE.selection = null;
   }
 
+  /** T16：重排前记下当前位置（epub CFI / pdf 页码），重排后归位（允许 ±1 页）。 */
+  let anchorTimer = 0;
+  function captureLocationAnchor() {
+    if (STATE.kind === "pdf") {
+      const page = Number(STATE.currentPage) || 0;
+      return page > 0 ? { kind: "pdf", page: page } : null;
+    }
+    const cfi = STATE.currentCfi ? String(STATE.currentCfi) : "";
+    return cfi ? { kind: "epub", cfi: cfi } : null;
+  }
+  function scheduleRestoreAnchor(anchor) {
+    if (!anchor) return;
+    clearTimeout(anchorTimer);
+    anchorTimer = setTimeout(() => {
+      const api = window.readerApi;
+      if (!api || typeof api.goTo !== "function") return;
+      try {
+        if (anchor.kind === "pdf" && anchor.page) api.goTo(anchor.page);
+        else if (anchor.kind === "epub" && anchor.cfi) api.goTo(anchor.cfi);
+      } catch (err) {
+        /* 归位失败不影响阅读 */
+      }
+    }, 80);
+  }
+
   /** foliate-js 的目录标题可能是字符串或语言映射对象。 */
   function tocLabel(value) {
     if (!value) return "";
@@ -311,11 +336,22 @@
   function applyPrefs() {
     applyPalette();
     applyTexture();
+    applyFixedPageWidth();
     if (STATE.foliate) {
       layoutFoliate();
       applyFoliateStyles();
       applyTurnStyle();
     }
+  }
+
+  /** 把「页宽固定」开关同步到 DOM class（CSS 决定纸面是否钉宽）。 */
+  function applyFixedPageWidth() {
+    const prefs = STATE.prefs || {};
+    const fixed =
+      prefs.fixed_page_width !== false &&
+      String(prefs.fixed_page_width) !== "false" &&
+      prefs.fixed_page_width !== 0;
+    if (document.body) document.body.classList.toggle("fixed-page-width", !!fixed);
   }
 
   /** 五档翻页动效：instant/push 用内置分页，slide/curl 交给渲染器，flip 用 View Transitions。 */
@@ -442,12 +478,18 @@
     return Number.isFinite(parsed) ? parsed : fallback;
   }
 
-  /** 单页期望宽度：page_width 为主，max_column_width 作为上限（兼容旧设置）。 */
-  function desiredPageWidth() {
-    const prefs = STATE.prefs || {};
-    const maxCol = Math.max(320, num(prefs.max_column_width, 920));
-    const pageW = Math.max(320, num(prefs.page_width, 560));
-    return Math.min(pageW, maxCol);
+  /** 画布内尺寸（剔除 padding），作为页框计算的视口输入（T16）。 */
+  function viewportSize() {
+    const canvas = $("canvas");
+    if (!canvas) return { width: 0, height: 0 };
+    const style = getComputedStyle(canvas);
+    return {
+      width: canvasInnerWidth(),
+      height: Math.max(
+        0,
+        canvas.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)
+      ),
+    };
   }
 
   function canvasInnerWidth() {
@@ -460,28 +502,13 @@
     );
   }
 
-  /** R2：计算摊开是否生效，以及当前单页宽度（单页/双页共用同一套 padding）。 */
+  /** 摊开与单页宽度：纯逻辑委托 BSPageFrame（T16 固定页框，单测覆盖）。 */
   function computeSpread() {
-    const prefs = STATE.prefs || {};
-    if (STATE.kind !== "epub") {
-      // PDF 等不做摊开：保持按最大列宽取宽，避免影响原渲染。
-      const maxCol = Math.max(520, num(prefs.max_column_width, 920));
-      const avail = canvasInnerWidth();
-      return { spread: false, pageWidth: Math.max(320, Math.min(maxCol, avail || maxCol)) };
+    if (typeof BSPageFrame === "undefined" || !BSPageFrame.computeFrame) {
+      return { spread: false, pageWidth: 560 };
     }
-    const desired = desiredPageWidth();
-    const legacy = num(prefs.margin_px, 64);
-    const hMargin =
-      Math.max(0, num(prefs.margin_left, legacy)) +
-      Math.max(0, num(prefs.margin_right, legacy));
-    const avail = canvasInnerWidth();
-    const usable = Math.max(320, (avail || desired) - hMargin);
-    const wantSpread = String(prefs.page_mode) === "spread";
-    const canSpread = wantSpread && usable >= desired * 2 + 48; // 48 给中缝与余量
-    const pageWidth = canSpread
-      ? Math.min(desired, Math.max(320, Math.floor(usable / 2)))
-      : Math.min(desired, usable);
-    return { spread: canSpread, pageWidth };
+    const frame = BSPageFrame.computeFrame(viewportSize(), STATE.prefs || {}, STATE.kind);
+    return { spread: frame.spread, pageWidth: frame.pageWidth };
   }
 
   /** 把摊开状态写到 DOM（dataset / --page-max），变化时回传 Python。 */
@@ -496,16 +523,13 @@
     }
   }
 
-  /** 纸面可用尺寸：高度跟随窗口，宽度由摊开计算决定。 */
+  /** 纸面页框尺寸：高度 = 视口高（固定页框），宽度走 BSPageFrame（T16）。 */
   function paperMetrics() {
-    const desired = desiredPageWidth();
-    const canvas = $("canvas");
-    if (!canvas) return { width: desired, height: 640 };
-    const style = getComputedStyle(canvas);
-    const availH =
-      canvas.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
-    const layout = computeSpread();
-    return { width: layout.pageWidth, height: Math.max(320, availH || 640) };
+    if (typeof BSPageFrame === "undefined" || !BSPageFrame.computeFrame) {
+      return { width: 560, height: 640 };
+    }
+    const frame = BSPageFrame.computeFrame(viewportSize(), STATE.prefs || {}, STATE.kind);
+    return { width: frame.width, height: frame.height };
   }
 
   function layoutFoliate() {
@@ -1215,8 +1239,10 @@
     open: open,
 
     setPrefs(prefs) {
+      const anchor = captureLocationAnchor();
       STATE.prefs = Object.assign({}, STATE.prefs, prefs || {});
       applyPrefs();
+      scheduleRestoreAnchor(anchor);
     },
 
     goTo(target) {

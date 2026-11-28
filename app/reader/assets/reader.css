@@ -94,6 +94,13 @@ html, body {
   background: transparent;
 }
 
+/* T16：页宽固定 —— 纸面宽度钉在 --page-max，不随窗口变宽而拉长书页；
+   关掉该开关（无此 class）时保持 flex:1，纸面流式放宽到 max_column_width。 */
+body.fixed-page-width #paper {
+  flex: 0 0 auto;
+  width: var(--page-max);
+}
+
 /* 背景纹理：纸面与 PDF 页共享同一套纹理类，EPUB 正文由 foliate 内部另注入。 */
 body.texture-paper #paper,
 body.texture-paper .pdf-page {
