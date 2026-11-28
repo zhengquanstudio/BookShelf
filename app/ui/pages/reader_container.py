@@ -17,6 +17,7 @@ from PySide6.QtCore import (
     QParallelAnimationGroup,
     QPoint,
     QPropertyAnimation,
+    QRect,
     QRunnable,
     QThreadPool,
     QTime,
@@ -28,6 +29,8 @@ from PySide6.QtGui import (
     QColor,
     QCursor,
     QDesktopServices,
+    QFont,
+    QFontMetrics,
     QGuiApplication,
     QKeySequence,
     QPainter,
@@ -186,12 +189,13 @@ _ROLE_LEVEL = Qt.UserRole + 5
 
 
 class _TocItemDelegate(QStyledItemDelegate):
-    """目录行：序号 + 标题（省略） + 页码，选中时左侧 2px 强调色竖条。"""
+    """目录行：序号 + 标题（省略） + 页码；当前章整行浅底 + 左侧 3px 竖条 + 「当前位置」胶囊。"""
 
     ROW_HEIGHT = 34
     NUMBER_WIDTH = 28
     PAGE_WIDTH = 32
     PADDING = 8
+    TAG_TEXT = "当前位置"
 
     def __init__(self, palette_provider, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -213,9 +217,9 @@ class _TocItemDelegate(QStyledItemDelegate):
             painter.fillRect(rect, QColor(theme.panel))
             painter.fillRect(
                 rect.left(),
-                rect.top() + 4,
-                2,
-                max(0, rect.height() - 8),
+                rect.top() + 7,
+                3,
+                max(0, rect.height() - 14),
                 QColor(theme.accent),
             )
         elif hovered:
@@ -226,17 +230,26 @@ class _TocItemDelegate(QStyledItemDelegate):
         page = str(index.data(_ROLE_PAGE) or "")
         level = max(0, int(index.data(_ROLE_LEVEL) or 0))
 
+        # 当前章右侧的「当前位置」胶囊：先量出宽度，把页码让到它左边。
+        tag_w = 0
+        if selected:
+            tag_font = QFont(painter.font())
+            tag_font.setPixelSize(9)
+            tag_w = QFontMetrics(tag_font).horizontalAdvance(self.TAG_TEXT) + 10
+
         font = painter.font()
         font.setPixelSize(12)
         painter.setFont(font)
         painter.setPen(QColor(theme.muted))
         number_rect = rect.adjusted(self.PADDING, 0, 0, 0)
         number_rect.setWidth(self.NUMBER_WIDTH)
-        painter.drawText(
-            number_rect, Qt.AlignRight | Qt.AlignVCenter, number
+        painter.drawText(number_rect, Qt.AlignRight | Qt.AlignVCenter, number)
+
+        page_right = rect.right() - self.PADDING - (tag_w + 6 if tag_w else 0)
+        page_rect = QRect(
+            page_right - self.PAGE_WIDTH + 1, rect.top(),
+            self.PAGE_WIDTH, rect.height(),
         )
-        page_rect = rect.adjusted(0, 0, -self.PADDING, 0)
-        page_rect.setLeft(page_rect.right() - self.PAGE_WIDTH + 1)
         painter.drawText(page_rect, Qt.AlignRight | Qt.AlignVCenter, page)
 
         font.setPixelSize(13)
@@ -244,17 +257,28 @@ class _TocItemDelegate(QStyledItemDelegate):
         painter.setPen(QColor(theme.ink))
         title_left = number_rect.right() + 8 + level * 10
         title_width = max(10, page_rect.left() - 8 - title_left)
-        elided = painter.fontMetrics().elidedText(
-            title, Qt.ElideRight, title_width
-        )
+        elided = painter.fontMetrics().elidedText(title, Qt.ElideRight, title_width)
         painter.drawText(
-            title_left,
-            rect.top(),
-            title_width,
-            rect.height(),
-            Qt.AlignLeft | Qt.AlignVCenter,
-            elided,
+            title_left, rect.top(), title_width, rect.height(),
+            Qt.AlignLeft | Qt.AlignVCenter, elided,
         )
+
+        if tag_w:
+            tag_h = 16
+            tag_rect = QRect(
+                rect.right() - self.PADDING - tag_w,
+                rect.center().y() - tag_h // 2,
+                tag_w, tag_h,
+            )
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QColor(theme.accent))
+            painter.drawRoundedRect(tag_rect, 4, 4)
+            painter.setBrush(Qt.NoBrush)
+            tag_font = QFont(painter.font())
+            tag_font.setPixelSize(9)
+            painter.setFont(tag_font)
+            painter.setPen(QColor("#ffffff"))
+            painter.drawText(tag_rect, Qt.AlignCenter, self.TAG_TEXT)
         painter.restore()
 
 
@@ -531,7 +555,7 @@ class ReaderContainer(QWidget):
         self._icon_buttons: list[IconButton] = []
         self._title_full = ""
         self._sidebar_visible = True
-        self._sidebar_width = 268
+        self._sidebar_width = 288
         self._clock_24h = True
         self._syncing = False
         self._open_serial = 0

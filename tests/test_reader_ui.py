@@ -225,3 +225,55 @@ def test_sidebar_collapse_animation_toggles(qapp, reader):
     assert not reader.sidebar.isHidden()
     assert reader._sidebar_visible
     assert reader.toc_button.isChecked()
+
+
+def test_t10_sidebar_width_is_288(reader):
+    # v3 原型：阅读左栏固定 288px。
+    assert reader._sidebar_width == 288
+    assert reader.sidebar.maximumWidth() == 288
+
+
+def test_t10_toc_current_row_paints_position_tag(qapp):
+    from PySide6.QtCore import QRect, Qt
+    from PySide6.QtGui import QColor, QPainter, QPixmap
+    from PySide6.QtWidgets import (
+        QListWidget,
+        QListWidgetItem,
+        QStyle,
+        QStyleOptionViewItem,
+    )
+
+    from app.ui.pages.reader_container import _TocItemDelegate
+    from app.ui.theme_tokens import palette_for
+
+    theme = palette_for("light")
+    delegate = _TocItemDelegate(lambda: theme)
+    lw = QListWidget()
+    lw.addItem(QListWidgetItem("第三章"))
+    index = lw.indexFromItem(lw.item(0))
+
+    def render(selected: bool):
+        option = QStyleOptionViewItem()
+        option.rect = QRect(0, 0, 288, 34)
+        option.state = (
+            QStyle.State_Enabled | QStyle.State_Selected
+            if selected else QStyle.State_Enabled
+        )
+        pix = QPixmap(288, 34)
+        pix.fill(Qt.transparent)
+        painter = QPainter(pix)
+        delegate.paint(painter, option, index)
+        painter.end()
+        return pix.toImage()
+
+    def accent_in_right_band(img) -> bool:
+        accent = QColor(theme.accent).name().lower()
+        for x in range(288 - 64, 288):
+            for y in range(34):
+                if img.pixelColor(x, y).name().lower() == accent:
+                    return True
+        return False
+
+    # 当前章右侧画出强调色「当前位置」胶囊；非当前章右侧无强调色。
+    assert accent_in_right_band(render(True))
+    assert not accent_in_right_band(render(False))
