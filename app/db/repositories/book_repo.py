@@ -63,6 +63,7 @@ _WRITABLE = {
 _ORDER_EXPR = {
     "id": "books.id",
     "title": "books.title",
+    "author": "COALESCE(authors.name_zh, books.author_raw)",
     "publish_date": "books.publish_date",
     "added_at": "books.added_at",
     "updated_at": "books.updated_at",
@@ -183,9 +184,15 @@ class BookRepository:
         tag: str | None = None,
         folder: str | None = None,
         search: str | None = None,
+        shelf_only: bool = False,
     ) -> tuple[str, list[Any]]:
         clauses: list[str] = []
         params: list[Any] = []
+        if shelf_only:
+            clauses.append(
+                "(books.favorite = 1 OR EXISTS (SELECT 1 FROM reading_state AS shelf_rs "
+                "WHERE shelf_rs.book_id = books.id))"
+            )
         if status:
             if isinstance(status, str):
                 clauses.append("books.status = ?")
@@ -234,6 +241,7 @@ class BookRepository:
         tag: str | None = None,
         folder: str | None = None,
         search: str | None = None,
+        shelf_only: bool = False,
         sort: str = "updated_at",
         desc: bool = True,
     ) -> list[sqlite3.Row]:
@@ -250,6 +258,7 @@ class BookRepository:
             tag=tag,
             folder=folder,
             search=search,
+            shelf_only=shelf_only,
         )
         sql = (
             "SELECT books.*, authors.name_zh AS author_name, "
@@ -276,6 +285,7 @@ class BookRepository:
         tag: str | None = None,
         folder: str | None = None,
         search: str | None = None,
+        shelf_only: bool = False,
     ) -> int:
         where, params = self._where(
             status=status,
@@ -285,6 +295,7 @@ class BookRepository:
             tag=tag,
             folder=folder,
             search=search,
+            shelf_only=shelf_only,
         )
         row = self.db.query_one(f"SELECT COUNT(*) AS n FROM books{where}", tuple(params))
         return int(row["n"]) if row else 0

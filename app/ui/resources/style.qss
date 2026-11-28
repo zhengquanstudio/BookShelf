@@ -1012,4 +1012,41 @@ QLineEdit:focus, QTextEdit:focus {
     font-size: 13px;
 }
 
+/* ---- T20 书架网格与空态 ---- */
+#ShelfGrid {
+    background: transparent;
+    border: none;
+    outline: none;
+}
+
+#ShelfEmpty {
+    background: #1b1d21;
+    border: 1px solid #33383f;
+    border-radius: 12px;
+}
+
+#ShelfEmptySkeleton {
+    color: #4a515a;
+    background: #25282d;
+    border: 1px dashed #3a4048;
+    border-radius: 12px;
+    font-size: 58px;
+    min-height: 120px;
+    max-height: 120px;
+}
+
+#ReaderDetailOverlay {
+    background: #1f2125;
+    border: 1px solid #33383f;
+    border-radius: 12px;
+}
+
+#ReaderDetailOverlay QLabel {
+    color: #d6d9df;
+}
+
+#ReaderDetailScroll {
+    background: transparent;
+    border: none;
+}
 

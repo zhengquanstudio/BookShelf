@@ -41,6 +41,7 @@ class LibraryService:
         page_size: int = 200,
         sort: str = "added_at",
         desc: bool = True,
+        shelf_only: bool = False,
     ) -> tuple[list[dict[str, Any]], int]:
         """按导航和搜索条件分页查询；排序和筛选均在 SQL 层完成。"""
         status = _NAV_STATUS.get(nav_key)
@@ -50,6 +51,7 @@ class LibraryService:
             "status": status,
             "formats": formats,
             "search": search or None,
+            "shelf_only": shelf_only,
             "tag": tag or None,
             "folder": folder or None,
         }

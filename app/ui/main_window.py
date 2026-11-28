@@ -52,6 +52,7 @@ from .dialogs.tag_dialog import TagManagerDialog
 from .pages.author_page import AuthorPage
 from .pages.folder_page import FolderPage
 from .pages.help_page import HelpPage
+from .pages.shelf_page import ShelfPage
 from .pages.library_page import EmptyLibraryPage, SampleLibraryDialog
 from .pages.reader_container import open_with_system
 from .reader_window import ReaderWindow
@@ -460,6 +461,10 @@ class MainWindow(QMainWindow):
         self.folder_page.folder_selected.connect(self._filter_folder)
         self.help_page = HelpPage()
         self.help_page.back_requested.connect(self._return_to_library)
+        self.shelf_page = ShelfPage(self.table_model, self.library)
+        self.shelf_page.open_requested.connect(self._open_book_by_id)
+        self.shelf_page.go_library_requested.connect(self._go_library_from_shelf)
+        self.shelf_page.query_changed.connect(self._on_shelf_query)
         self._reader_windows: dict[int, ReaderWindow] = {}
 
         self.content_stack = QStackedWidget()
@@ -467,6 +472,7 @@ class MainWindow(QMainWindow):
         self.content_stack.addWidget(self.author_page)
         self.content_stack.addWidget(self.folder_page)
         self.content_stack.addWidget(self.help_page)
+        self.content_stack.addWidget(self.shelf_page)
 
         self.body_splitter = QSplitter(Qt.Horizontal)
         self.body_splitter.setObjectName("BodySplitter")
@@ -607,6 +613,7 @@ class MainWindow(QMainWindow):
         self.detail.setFixedWidth(int(ui_config.get("detail_width", 384)))
         self.table_model.set_theme(theme_name, accent_name)
         self._cell_delegate.set_theme(theme_name, accent_name)
+        self.shelf_page.set_theme(theme_name, accent_name)
         self.table.viewport().update()
         self.detail.set_theme(theme_name, accent_name)
         self._position_batch_bar()
@@ -642,6 +649,16 @@ class MainWindow(QMainWindow):
         self._update_load_more(total, shown)
         self._update_status(total, shown)
         self._refresh_batch_bar()
+        if self.content_stack.currentWidget() is self.shelf_page:
+            self.shelf_page.set_filters(
+                format_name=str(self.format_filter.currentData() or ""),
+                tag=self._tag_filter,
+                folder=self._folder_filter,
+            )
+            self.shelf_page.set_query(
+                search=self.search_box.text(), sort=self._library_sort, desc=self._library_desc
+            )
+            self.shelf_page.refresh()
 
     def _query_library_page(self, page: int) -> tuple[list[dict[str, Any]], int]:
         return self.library.query_books(
@@ -655,6 +672,13 @@ class MainWindow(QMainWindow):
             sort=self._library_sort,
             desc=self._library_desc,
         )
+
+    def _on_shelf_query(self, search: str, sort_key: str, desc: bool) -> None:
+        self._library_sort = sort_key
+        self._library_desc = desc
+        self.search_box.blockSignals(True)
+        self.search_box.setText(search)
+        self.search_box.blockSignals(False)
 
     def _on_table_sort(self, sort_key: str, desc: bool) -> None:
         self._library_sort = sort_key
@@ -1148,6 +1172,10 @@ class MainWindow(QMainWindow):
             self.open_scan_dialog()
         return False
 
+    def _go_library_from_shelf(self) -> None:
+        self.nav.set_current_silent("all")
+        self._on_nav("all")
+
     def _show_library(self) -> None:
         self.content_stack.setCurrentWidget(self.content_stack.widget(0))
         self.vertical.widget(1).setVisible(True)
@@ -1285,6 +1313,19 @@ class MainWindow(QMainWindow):
             self._tag_filter = ""
             self._folder_filter = ""
             self._show_library()
+        elif key == "shelf":
+            self._nav_display_key = "shelf"
+            self.content_stack.setCurrentWidget(self.shelf_page)
+            self.vertical.widget(1).setVisible(False)
+            self.shelf_page.set_filters(
+                format_name=str(self.format_filter.currentData() or ""),
+                tag=self._tag_filter,
+                folder=self._folder_filter,
+            )
+            self.shelf_page.set_query(
+                search=self.search_box.text(), sort=self._library_sort, desc=self._library_desc
+            )
+            self.shelf_page.refresh()
         elif key in {"authors", "series"}:
             self.content_stack.setCurrentWidget(self.author_page)
             self.vertical.widget(1).setVisible(True)

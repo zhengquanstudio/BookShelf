@@ -66,8 +66,12 @@ class BookDetailOverlay(QFrame):
         on_note: Callable[[], None] | None = None,
         on_bookmark: Callable[[], None] | None = None,
         on_restore: Callable[[], None] | None = None,
+        library: Any | None = None,
+        compact: bool = False,
     ) -> None:
         super().__init__(parent)
+        self._library = library
+        self._compact = compact
         self.setObjectName("ReaderDetailOverlay")
         self.setFixedWidth(self.WIDTH)
         self.setMaximumHeight(600)
@@ -83,6 +87,9 @@ class BookDetailOverlay(QFrame):
         self.rename_button.clicked.connect(on_rename)
         self.close_button.clicked.connect(on_close)
         self.description_toggle.clicked.connect(self._toggle_description)
+        if compact:
+            # 书架只读详情：不暴露依赖阅读器上下文的编辑/位置操作。
+            self.view_actions.hide()
     def _build_header(self) -> QHBoxLayout:
         head = QHBoxLayout()
         head.setContentsMargins(16, 16, 10, 10)
@@ -364,6 +371,32 @@ class BookDetailOverlay(QFrame):
         button.setEnabled(enabled)
         button.setMinimumHeight(30)
         return button
+
+    def show_for(self, book_id: int) -> bool:
+        """按书籍 id 从 LibraryService 载入并展示；书架与阅读器共用同一浮层。"""
+        if self._library is None:
+            raise RuntimeError("show_for(book_id) 需要构造时提供 LibraryService")
+        row = self._library.books.get(int(book_id))
+        if row is None:
+            return False
+        book = dict(row)
+        progress_row = self._library.db.query_one(
+            "SELECT percent, total_seconds FROM reading_state WHERE book_id = ?", (int(book_id),)
+        )
+        progress = dict(progress_row) if progress_row is not None else {}
+        self.populate(
+            book,
+            tags=self._library.tags_for(int(book_id)),
+            progress=progress,
+            archive_path=self._library.archive_path(int(book_id)),
+            cover=self._library.cover_for(book),
+        )
+        self.leave_edit()
+        if self._compact:
+            self.view_actions.hide()
+        self.show()
+        self.raise_()
+        return True
 
     def populate(
         self,
