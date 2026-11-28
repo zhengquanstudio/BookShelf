@@ -177,6 +177,14 @@ class BookTableModel(QAbstractTableModel):
     def checked_ids(self) -> list[int]:
         return sorted(self._checked)
 
+    def clear_checked(self) -> None:
+        """清空所有勾选，并通知视图刷新复选框列。"""
+        self._checked.clear()
+        if self._rows:
+            top_left = self.index(0, 0)
+            bottom_right = self.index(len(self._rows) - 1, 0)
+            self.dataChanged.emit(top_left, bottom_right, [Qt.CheckStateRole])
+
     def sort(self, column: int, order: Qt.SortOrder = Qt.DescendingOrder) -> None:  # noqa: N802
         """表头点击触发：不在内存里重排（分页只加载了一部分），通知主窗重读。"""
         key = _SORTABLE_COLS.get(column)

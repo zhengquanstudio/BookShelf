@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import shutil
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -170,6 +172,111 @@ class LibraryService:
             (int(book_id),),
         )
         return str(rows[0]["target_path"]) if rows else ""
+
+    # ---- 批量操作（T6） ---------------------------------------------
+    def move_books_to(
+        self, book_ids: Sequence[int], target_dir: str | Path
+    ) -> tuple[int, list[str]]:
+        """把所选书的物理文件移动到 target_dir，更新 file_path 并记录归档项。
+
+        单本失败不中断批处理，错误信息收集后返回；不触碰识别/整理核心逻辑。
+        """
+        target = Path(target_dir).expanduser()
+        try:
+            target.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            return 0, [f"无法创建目标目录：{exc}"]
+        ids = list(dict.fromkeys(int(book_id) for book_id in book_ids))
+        moved = 0
+        errors: list[str] = []
+        for book_id in ids:
+            row = self.db.query_one(
+                "SELECT file_path FROM books WHERE id = ?", (book_id,)
+            )
+            if row is None or not row["file_path"]:
+                errors.append(f"#{book_id} 缺少文件路径")
+                continue
+            archive = self.archive_path(book_id)
+            source = (
+                Path(archive)
+                if archive and Path(archive).exists()
+                else Path(str(row["file_path"]))
+            )
+            if not source.exists():
+                errors.append(f"{source.name}：源文件不存在")
+                continue
+            destination = target / source.name
+            if destination.exists():
+                stem, suffix = source.stem, source.suffix
+                index = 1
+                while True:
+                    candidate = target / f"{stem}_{index}{suffix}"
+                    if not candidate.exists():
+                        destination = candidate
+                        break
+                    index += 1
+            try:
+                shutil.move(str(source), str(destination))
+            except OSError as exc:
+                errors.append(f"{source.name}：{exc}")
+                continue
+            try:
+                with self.db.transaction() as conn:
+                    conn.execute(
+                        "UPDATE books SET file_path = ?, updated_at = ? WHERE id = ?",
+                        (str(destination), utc_now(), book_id),
+                    )
+                    conn.execute(
+                        "INSERT INTO library_items"
+                        "(book_id, source_path, target_dir, target_name, "
+                        "target_path, action, result, created_at) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        (
+                            book_id,
+                            str(source),
+                            str(target),
+                            destination.name,
+                            str(destination),
+                            "move",
+                            "moved",
+                            utc_now(),
+                        ),
+                    )
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{source.name}：写入失败 {exc}")
+                continue
+            moved += 1
+        return moved, errors
+
+    def export_list(self, book_ids: Sequence[int], path: str | Path) -> int:
+        """导出所选书清单为 UTF-8-BOM CSV，Excel 可直接打开。"""
+        ids = list(dict.fromkeys(int(book_id) for book_id in book_ids))
+        if not ids:
+            return 0
+        marks = ", ".join("?" for _ in ids)
+        rows = self.db.query(
+            "SELECT id, title, author_raw, format, isbn, status, file_path "
+            f"FROM books WHERE id IN ({marks}) ORDER BY id",
+            tuple(ids),
+        )
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with open(target, "w", encoding="utf-8-sig", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["书名", "作者", "格式", "ISBN", "状态", "文件路径", "归档路径"])
+            for row in rows:
+                writer.writerow(
+                    [
+                        row["title"] or "",
+                        row["author_raw"] or "",
+                        row["format"] or "",
+                        row["isbn"] or "",
+                        row["status"] or "",
+                        row["file_path"] or "",
+                        self.archive_path(int(row["id"])),
+                    ]
+                )
+        return len(rows)
 
     # ---- 标签管理（M7） ---------------------------------------------
     def rename_tag(self, old_name: str, new_name: str) -> int:

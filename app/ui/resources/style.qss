@@ -392,6 +392,31 @@ QTableView::item {
 
 #DetailActions { border-top: 1px solid #33383f; }
 
+/* ---- T6 批量浮动条 ---- */
+QFrame#BatchBar {
+    background: #1f2125;
+    border: 1px solid #33383f;
+    border-radius: 12px;
+}
+#BatchCount {
+    color: #e7e9ee;
+    font-weight: 600;
+    font-size: 12.5px;
+}
+QFrame#BatchBar QPushButton {
+    padding: 5px 12px;
+}
+#BatchClear {
+    background: transparent;
+    border: none;
+    color: #a3a9b4;
+    border-radius: 6px;
+}
+#BatchClear:hover {
+    background: #2c3036;
+    color: #e7e9ee;
+}
+
 #LogPanel {
     background: #1b1d21;
     border-top: 1px solid #33383f;

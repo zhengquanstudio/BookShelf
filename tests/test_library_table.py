@@ -118,3 +118,74 @@ def test_progress_display_and_isbn_tooltip(db, tmp_path, qapp, qt_settings):
     finally:
         window.close()
         qapp.processEvents()
+
+
+def test_batch_bar_shows_hides_and_counts_checked(db, tmp_path, qapp, qt_settings):
+    window = _make_window(db, tmp_path, qapp, qt_settings)
+    try:
+        model = window.table_model
+        # 取消 refresh 时的自动选中，初始应隐藏
+        window.table.clearSelection()
+        qapp.processEvents()
+        assert not window.batch_bar.isVisible()
+
+        alpha_row = next(
+            r for r in range(model.rowCount()) if model.row_data(r)["title"] == "Alpha"
+        )
+        model.setData(model.index(alpha_row, 0), Qt.Checked, Qt.CheckStateRole)
+        qapp.processEvents()
+        assert window.batch_bar.isVisible()
+        assert "1" in window.batch_bar._count.text()
+
+        beta_row = next(
+            r for r in range(model.rowCount()) if model.row_data(r)["title"] == "Beta"
+        )
+        model.setData(model.index(beta_row, 0), Qt.Checked, Qt.CheckStateRole)
+        qapp.processEvents()
+        assert "2" in window.batch_bar._count.text()
+
+        window.batch_bar.clear_requested.emit()
+        qapp.processEvents()
+        assert not window.batch_bar.isVisible()
+        assert model.checked_ids() == []
+    finally:
+        window.close()
+        qapp.processEvents()
+
+
+def test_batch_bar_archive_marks_books_archived(db, tmp_path, qapp, qt_settings):
+    window = _make_window(db, tmp_path, qapp, qt_settings)
+    try:
+        model = window.table_model
+        alpha_row = next(
+            r for r in range(model.rowCount()) if model.row_data(r)["title"] == "Alpha"
+        )
+        book_id = model.row_data(alpha_row)["id"]
+        model.setData(model.index(alpha_row, 0), Qt.Checked, Qt.CheckStateRole)
+        window._batch_archive()
+        qapp.processEvents()
+        row = window.db.query_one("SELECT status FROM books WHERE id = ?", (book_id,))
+        assert row["status"] == "archived"
+    finally:
+        window.close()
+        qapp.processEvents()
+
+
+def test_library_export_list_writes_csv(db, tmp_path, qapp, qt_settings):
+    window = _make_window(db, tmp_path, qapp, qt_settings)
+    try:
+        model = window.table_model
+        alpha_row = next(
+            r for r in range(model.rowCount()) if model.row_data(r)["title"] == "Alpha"
+        )
+        book_id = model.row_data(alpha_row)["id"]
+        out = tmp_path / "list.csv"
+        count = window.library.export_list([book_id], out)
+        assert count == 1
+        assert out.exists()
+        text = out.read_text(encoding="utf-8-sig")
+        assert "书名" in text
+        assert "Alpha" in text
+    finally:
+        window.close()
+        qapp.processEvents()

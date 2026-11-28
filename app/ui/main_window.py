@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 import re
 
-from PySide6.QtCore import QSettings, QThreadPool, QTimer, Qt, QUrl
+from PySide6.QtCore import QEvent, QSettings, QThreadPool, QTimer, Qt, QUrl
 from PySide6.QtGui import QAction, QColor, QDesktopServices
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -56,6 +56,7 @@ from .pages.library_page import EmptyLibraryPage, SampleLibraryDialog
 from .pages.reader_container import open_with_system
 from .reader_window import ReaderWindow
 from .theme import load_stylesheet, ui_colors
+from .widgets.batch_bar import BatchBar
 from .widgets.book_table import HEADERS, BookCellDelegate, BookTableModel
 from .widgets.detail_panel import DetailPanel
 from .widgets.log_panel import LogPanel
@@ -426,6 +427,18 @@ class MainWindow(QMainWindow):
         self.load_more_button.clicked.connect(self._load_more_library)
         center_layout.addWidget(self.load_more_button, 0, Qt.AlignCenter)
 
+        # T6：批量浮动条，悬浮在表格区域底部，随勾选/选中状态显隐。
+        self._library_center = center
+        self.batch_bar = BatchBar(center)
+        self.batch_bar.archive_requested.connect(self._batch_archive)
+        self.batch_bar.move_requested.connect(self._batch_move)
+        self.batch_bar.reidentify_requested.connect(self._batch_reidentify)
+        self.batch_bar.export_requested.connect(self._batch_export)
+        self.batch_bar.clear_requested.connect(self._batch_clear_selection)
+        self.table_model.dataChanged.connect(self._refresh_batch_bar)
+        self.table.selectionModel().selectionChanged.connect(self._refresh_batch_bar)
+        center.installEventFilter(self)
+
         self.detail = DetailPanel()
         self.detail.setFixedWidth(detail_width)
 
@@ -595,6 +608,7 @@ class MainWindow(QMainWindow):
         self._cell_delegate.set_theme(theme_name)
         self.table.viewport().update()
         self.detail.set_theme(theme_name)
+        self._position_batch_bar()
 
     # ---- 书库数据 ---------------------------------------------------
     def refresh_library(self, *_args) -> None:
@@ -626,6 +640,7 @@ class MainWindow(QMainWindow):
         shown = len(rows)
         self._update_load_more(total, shown)
         self._update_status(total, shown)
+        self._refresh_batch_bar()
 
     def _query_library_page(self, page: int) -> tuple[list[dict[str, Any]], int]:
         return self.library.query_books(
@@ -916,6 +931,85 @@ class MainWindow(QMainWindow):
             progress.deleteLater()
         self._enrich_progress = None
         self._enrich_worker = None
+
+    # ---- T6 批量浮动条 ----------------------------------------------
+    def _refresh_batch_bar(self, *_args) -> None:
+        bar = getattr(self, "batch_bar", None)
+        if bar is None:
+            return
+        ids = self._books_for_action()
+        bar.set_count(len(ids))
+        should_show = len(ids) > 0
+        if should_show != bar.isVisible():
+            bar.setVisible(should_show)
+        self._position_batch_bar()
+
+    def _position_batch_bar(self) -> None:
+        bar = getattr(self, "batch_bar", None)
+        center = getattr(self, "_library_center", None)
+        if bar is None or center is None:
+            return
+        bar.adjustSize()
+        x = max(8, (center.width() - bar.width()) // 2)
+        y = center.height() - bar.height() - 16
+        if y < 8:
+            y = 8
+        bar.move(x, y)
+        bar.raise_()
+
+    def eventFilter(self, obj, event):  # noqa: N802
+        if obj is getattr(self, "_library_center", None) and event.type() == QEvent.Resize:
+            self._position_batch_bar()
+        return super().eventFilter(obj, event)
+
+    def _batch_archive(self) -> None:
+        ids = self._books_for_action()
+        if not ids:
+            return
+        count = self.library.set_status(ids, "archived")
+        self.refresh_library()
+        self.statusBar().showMessage(f"已归档：{count} 本", 8000)
+
+    def _batch_reidentify(self) -> None:
+        ids = self._books_for_action()
+        if ids:
+            self._reidentify_books(ids)
+
+    def _batch_move(self) -> None:
+        ids = self._books_for_action()
+        if not ids:
+            return
+        initial = self.settings.data.get("library_root") or str(Path.home())
+        directory = QFileDialog.getExistingDirectory(self, "移动到…", initial)
+        if not directory:
+            return
+        moved, errors = self.library.move_books_to(ids, directory)
+        self.refresh_library()
+        message = f"已移动 {moved} 本到：{directory}"
+        if errors:
+            message += f"（{len(errors)} 本失败）"
+        self.statusBar().showMessage(message, 10000)
+
+    def _batch_export(self) -> None:
+        ids = self._books_for_action()
+        if not ids:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "导出清单", "书库清单.csv", "CSV 文件 (*.csv)"
+        )
+        if not path:
+            return
+        try:
+            count = self.library.export_list(ids, path)
+        except OSError as exc:
+            QMessageBox.warning(self, "导出失败", str(exc))
+            return
+        self.statusBar().showMessage(f"已导出 {count} 条到 {path}", 10000)
+
+    def _batch_clear_selection(self) -> None:
+        self.table_model.clear_checked()
+        self.table.clearSelection()
+        self._refresh_batch_bar()
 
     def _assign_author(self, book_ids: list[int]) -> None:
         authors = AuthorService(self.db).catalog()
