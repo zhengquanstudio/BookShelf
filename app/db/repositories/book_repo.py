@@ -59,7 +59,21 @@ _WRITABLE = {
     "dup_of",
 }
 
-_SORTABLE = {"id", "title", "publish_date", "added_at", "updated_at", "file_size", "confidence"}
+# 可排序列 → ORDER BY 表达式（含联表得到的进度列）。
+_ORDER_EXPR = {
+    "id": "books.id",
+    "title": "books.title",
+    "publish_date": "books.publish_date",
+    "added_at": "books.added_at",
+    "updated_at": "books.updated_at",
+    "file_size": "books.file_size",
+    "confidence": "books.confidence",
+    "format": "books.format",
+    "isbn": "books.isbn",
+    "status": "books.status",
+    "progress": "rs.percent",
+}
+_SORTABLE = set(_ORDER_EXPR)
 
 # 书的实际存放位置：整理成功的取归档目标，否则取原始文件路径。
 _PHYSICAL_PATH = (
@@ -226,7 +240,7 @@ class BookRepository:
         """分页查询，排序与筛选都在 SQL 层完成。"""
         page = max(1, int(page))
         page_size = min(max(1, int(page_size)), 1000)
-        column = sort if sort in _SORTABLE else "updated_at"
+        order_expr = _ORDER_EXPR.get(sort, _ORDER_EXPR["updated_at"])
         direction = "DESC" if desc else "ASC"
         where, params = self._where(
             status=status,
@@ -239,12 +253,14 @@ class BookRepository:
         )
         sql = (
             "SELECT books.*, authors.name_zh AS author_name, "
-            "authors.country AS country, series.name AS series_name "
+            "authors.country AS country, series.name AS series_name, "
+            "rs.percent AS progress "
             "FROM books "
             "LEFT JOIN authors ON authors.id = books.author_id "
-            "LEFT JOIN series ON series.id = books.series_id"
+            "LEFT JOIN series ON series.id = books.series_id "
+            "LEFT JOIN reading_state rs ON rs.book_id = books.id"
             f"{where} "
-            f"ORDER BY books.{column} {direction}, books.id {direction} "
+            f"ORDER BY {order_expr} {direction}, books.id {direction} "
             "LIMIT ? OFFSET ?"
         )
         params.extend([page_size, (page - 1) * page_size])

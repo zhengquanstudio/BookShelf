@@ -37,19 +37,24 @@ class LibraryService:
         folder: str = "",
         page: int = 1,
         page_size: int = 200,
+        sort: str = "added_at",
+        desc: bool = True,
     ) -> tuple[list[dict[str, Any]], int]:
         """按导航和搜索条件分页查询；排序和筛选均在 SQL 层完成。"""
         status = _NAV_STATUS.get(nav_key)
         formats = [format_name] if format_name else None
-        kwargs = {
+        # count() 不接受 sort/desc，筛选条件单独一组避免透传。
+        filter_kwargs = {
             "status": status,
             "formats": formats,
             "search": search or None,
             "tag": tag or None,
             "folder": folder or None,
         }
-        rows = self.books.list(page=page, page_size=page_size, **kwargs)
-        total = self.books.count(**kwargs)
+        rows = self.books.list(
+            page=page, page_size=page_size, sort=sort, desc=desc, **filter_kwargs
+        )
+        total = self.books.count(**filter_kwargs)
         return [dict(row) for row in rows], total
 
     def tag_counts(self) -> list[dict[str, Any]]:

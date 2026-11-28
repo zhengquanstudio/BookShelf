@@ -109,3 +109,46 @@ def test_bookmarks_and_highlights(db):
     bookmark_id = reading.list_bookmarks(book_id)[0]["id"]
     assert reading.delete_bookmark(bookmark_id) == 1
     assert len(reading.list_bookmarks(book_id)) == 1
+
+
+def test_book_list_returns_progress_and_sorts_server_side(db):
+    """T4：list() 联表带出 progress，并支持新增的可排序列。"""
+    books = BookRepository(db)
+    reading = ReadingRepository(db)
+    a = books.create(
+        file_path=r"C:\books\a.epub", quick_hash="a", format="epub",
+        title="Beta 书", isbn="222", file_size=2048,
+    )
+    b = books.create(
+        file_path=r"C:\books\b.pdf", quick_hash="b", format="pdf",
+        title="Alpha 书", isbn="111", file_size=1024,
+    )
+    c = books.create(
+        file_path=r"C:\books\c.mobi", quick_hash="c", format="mobi",
+        title="Gamma 书", isbn="333", file_size=4096,
+    )
+    reading.save_progress(c, '{"cfi":"x"}', 55.0)
+
+    rows = books.list()
+    assert all("progress" in r.keys() for r in rows)
+    by_id = {r["id"]: r for r in rows}
+    assert by_id[c]["progress"] == pytest.approx(55.0)
+    assert by_id[a]["progress"] is None
+
+    assert [r["title"] for r in books.list(sort="title", desc=False)] == [
+        "Alpha 书", "Beta 书", "Gamma 书"
+    ]
+    assert [r["title"] for r in books.list(sort="title", desc=True)] == [
+        "Gamma 书", "Beta 书", "Alpha 书"
+    ]
+    assert [r["id"] for r in books.list(sort="file_size", desc=False)] == [b, a, c]
+    assert [r["id"] for r in books.list(sort="file_size", desc=True)] == [c, a, b]
+    # 有进度的排在最前（NULL 在后）
+    assert books.list(sort="progress", desc=True)[0]["id"] == c
+    assert [r["format"] for r in books.list(sort="format", desc=False)] == [
+        "epub", "mobi", "pdf"
+    ]
+    assert [r["isbn"] for r in books.list(sort="isbn", desc=False)] == ["111", "222", "333"]
+    # 未知排序键回退到 updated_at，不抛错
+    fallback = books.list(sort="not_a_real_column", desc=False)
+    assert len(fallback) == 3

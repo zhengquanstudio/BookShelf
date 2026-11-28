@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QSplitter,
     QStackedWidget,
     QTableView,
+    QHeaderView,
     QVBoxLayout,
     QWidget,
     QApplication,
@@ -55,7 +56,7 @@ from .pages.library_page import EmptyLibraryPage, SampleLibraryDialog
 from .pages.reader_container import open_with_system
 from .reader_window import ReaderWindow
 from .theme import load_stylesheet, ui_colors
-from .widgets.book_table import HEADERS, BookTableModel
+from .widgets.book_table import HEADERS, BookCellDelegate, BookTableModel
 from .widgets.detail_panel import DetailPanel
 from .widgets.log_panel import LogPanel
 from .widgets.nav_sidebar import NavSidebar
@@ -88,6 +89,8 @@ class MainWindow(QMainWindow):
         self._library_page_size = 200
         self._library_total = 0
         self._library_loading = False
+        self._library_sort = "added_at"
+        self._library_desc = True
         self._settings_from_nav = False
         self._scan_dialog: ScanDialog | None = None
         self._edit_dialog: EditBookDialog | None = None
@@ -109,6 +112,10 @@ class MainWindow(QMainWindow):
         self._build_statusbar()
         self._load_style()
         self._restore_window_state()
+
+        # 表头排序：默认按添加时间倒序（与原型一致），点击后服务端重查。
+        self.table_model.sort_changed.connect(self._on_table_sort)
+        self.table.horizontalHeader().setSortIndicator(6, Qt.DescendingOrder)
 
         self.scan_service.running_changed.connect(self._on_scan_running)
         self.scan_service.finished.connect(self._on_scan_finished)
@@ -392,9 +399,14 @@ class MainWindow(QMainWindow):
         self.table.verticalHeader().setVisible(False)
         self.table.setShowGrid(False)
         self.table.setAlternatingRowColors(False)
-        self.table.verticalHeader().setDefaultSectionSize(44)
+        self.table.verticalHeader().setDefaultSectionSize(56)
         for index, (_name, width, _key) in enumerate(HEADERS):
             self.table.setColumnWidth(index, width)
+        # 书名列吸收剩余宽度；表头点击排序交给服务端（分页下不能只排已加载行）。
+        self.table.setSortingEnabled(True)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self._cell_delegate = BookCellDelegate(self.table)
+        self.table.setItemDelegate(self._cell_delegate)
 
         center = QWidget()
         center_layout = QVBoxLayout(center)
@@ -578,6 +590,10 @@ class MainWindow(QMainWindow):
             self._settings_dialog.refresh_theme()
         self.nav.setFixedWidth(int(ui_config.get("nav_width", 236)))
         self.detail.setFixedWidth(int(ui_config.get("detail_width", 376)))
+        theme_name = str(ui_config.get("theme") or "dark")
+        self.table_model.set_theme(theme_name)
+        self._cell_delegate.set_theme(theme_name)
+        self.table.viewport().update()
 
     # ---- 书库数据 ---------------------------------------------------
     def refresh_library(self, *_args) -> None:
@@ -619,7 +635,14 @@ class MainWindow(QMainWindow):
             folder=self._folder_filter,
             page=page,
             page_size=self._library_page_size,
+            sort=self._library_sort,
+            desc=self._library_desc,
         )
+
+    def _on_table_sort(self, sort_key: str, desc: bool) -> None:
+        self._library_sort = sort_key
+        self._library_desc = desc
+        self.refresh_library()
 
     def _load_more_library(self) -> None:
         shown = self.table_model.rowCount()
