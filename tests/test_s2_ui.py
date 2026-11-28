@@ -32,10 +32,7 @@ def _window(db, tmp_path, qt_settings) -> MainWindow:
 
 def test_nav_has_partial_entry(db, tmp_path, qapp, qt_settings) -> None:
     window = _window(db, tmp_path, qt_settings)
-    keys = [
-        window.nav._list.item(i).data(Qt.UserRole)
-        for i in range(window.nav._list.count())
-    ]
+    keys = window.nav.keys()
     assert "partial" in keys
 
 

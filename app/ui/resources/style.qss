@@ -193,28 +193,72 @@ QPushButton:pressed {
     border-right: 1px solid #33383f;
 }
 
-#NavList {
+#NavScroll {
     background: transparent;
     border: none;
-    outline: none;
 }
 
-#NavList::item {
+#NavContainer {
+    background: transparent;
+}
+
+#NavLabel {
     color: #a3a9b4;
-    border-left: 2px solid transparent;
-    padding-left: 10px;
-    border-radius: 0;
+    font-size: 10.5px;
+    padding: 14px 10px 6px;
 }
 
-#NavList::item:hover {
+#NavItem {
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: #a3a9b4;
+    text-align: left;
+    padding: 0;
+    margin: 1px 0;
+}
+
+#NavItem:hover {
     background: #25282d;
     color: #e7e9ee;
 }
 
-#NavList::item:selected {
-    background: #2c3036;
+#NavItem:checked {
+    background: rgba(79, 140, 247, 0.10);
     color: #e7e9ee;
-    border-left: 2px solid #4f8cf7;
+    font-weight: 600;
+}
+
+#NavBar {
+    background: #4f8cf7;
+    border-radius: 3px;
+}
+
+#NavIcon {
+    color: #a3a9b4;
+    font-size: 13px;
+    background: transparent;
+}
+
+#NavTitle {
+    color: #a3a9b4;
+    font-size: 12.5px;
+    background: transparent;
+}
+
+#NavCount {
+    color: #6f7681;
+    font-size: 11px;
+    background: transparent;
+}
+
+#NavItem:checked #NavTitle,
+#NavItem:checked #NavIcon {
+    color: #e7e9ee;
+}
+
+#NavItem:checked #NavCount {
+    color: #8fb6fb;
 }
 
 QTableView {

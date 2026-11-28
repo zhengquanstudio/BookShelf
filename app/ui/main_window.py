@@ -376,7 +376,7 @@ class MainWindow(QMainWindow):
         root.addWidget(header)
 
         ui_config = self.settings.data.get("ui") or {}
-        nav_width = int(ui_config.get("nav_width", 220))
+        nav_width = int(ui_config.get("nav_width", 236))
         detail_width = int(ui_config.get("detail_width", 376))
 
         self.nav = NavSidebar()
@@ -576,7 +576,7 @@ class MainWindow(QMainWindow):
         if self._settings_dialog is not None:
             self._settings_dialog.setStyleSheet(qss)
             self._settings_dialog.refresh_theme()
-        self.nav.setFixedWidth(int(ui_config.get("nav_width", 220)))
+        self.nav.setFixedWidth(int(ui_config.get("nav_width", 236)))
         self.detail.setFixedWidth(int(ui_config.get("detail_width", 376)))
 
     # ---- 书库数据 ---------------------------------------------------
